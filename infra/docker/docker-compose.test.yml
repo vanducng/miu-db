@@ -1,0 +1,495 @@
+services:
+  mssql:
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    container_name: miu-db-test-mssql
+    environment:
+      ACCEPT_EULA: "Y"
+      MSSQL_SA_PASSWORD: "TestPassword123!"
+      MSSQL_PID: "Developer"
+    ports:
+      - "${MSSQL_PORT:-1434}:1433"
+    healthcheck:
+      test: /opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P "TestPassword123!" -C -Q "SELECT 1" || exit 1
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+  postgres:
+    image: postgres:16-alpine
+    container_name: miu-db-test-postgres
+    environment:
+      POSTGRES_USER: "testuser"
+      POSTGRES_PASSWORD: "TestPassword123!"
+      POSTGRES_DB: "test_miu_db"
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U testuser -d test_miu_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+    tmpfs:
+      - /var/lib/postgresql/data
+
+  mysql:
+    image: mysql:8.0
+    container_name: miu-db-test-mysql
+    environment:
+      MYSQL_ROOT_PASSWORD: "TestPassword123!"
+      MYSQL_USER: "testuser"
+      MYSQL_PASSWORD: "TestPassword123!"
+      MYSQL_DATABASE: "test_miu_db"
+    ports:
+      - "${MYSQL_PORT:-3306}:3306"
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "testuser", "-pTestPassword123!"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+    tmpfs:
+      - /var/lib/mysql
+
+  # MySQL with TIS-620 charset (Thai) - for charset testing
+  mysql-tis620:
+    image: mysql:8.0
+    container_name: miu-db-test-mysql-tis620
+    command: --character-set-server=tis620 --collation-server=tis620_thai_ci
+    environment:
+      MYSQL_ROOT_PASSWORD: "TestPassword123!"
+      MYSQL_USER: "testuser"
+      MYSQL_PASSWORD: "TestPassword123!"
+      MYSQL_DATABASE: "test_miu_db"
+    ports:
+      - "${MYSQL_TIS620_PORT:-3308}:3306"
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "testuser", "-pTestPassword123!"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+    tmpfs:
+      - /var/lib/mysql
+
+  # MySQL with Latin1 charset - for charset testing
+  mysql-latin1:
+    image: mysql:8.0
+    container_name: miu-db-test-mysql-latin1
+    command: --character-set-server=latin1 --collation-server=latin1_swedish_ci
+    environment:
+      MYSQL_ROOT_PASSWORD: "TestPassword123!"
+      MYSQL_USER: "testuser"
+      MYSQL_PASSWORD: "TestPassword123!"
+      MYSQL_DATABASE: "test_miu_db"
+    ports:
+      - "${MYSQL_LATIN1_PORT:-3309}:3306"
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "testuser", "-pTestPassword123!"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+    tmpfs:
+      - /var/lib/mysql
+
+  clickhouse:
+    image: clickhouse/clickhouse-server:latest
+    container_name: miu-db-test-clickhouse
+    environment:
+      CLICKHOUSE_USER: "default"
+      CLICKHOUSE_PASSWORD: "TestPassword123!"
+    ports:
+      - "8123:8123"
+    tmpfs:
+      - /var/lib/clickhouse
+
+  oracle:
+    image: gvenzl/oracle-free:23-slim
+    container_name: miu-db-test-oracle
+    environment:
+      ORACLE_PASSWORD: "TestPassword123!"
+      APP_USER: "testuser"
+      APP_USER_PASSWORD: "TestPassword123!"
+    ports:
+      - "${ORACLE_PORT:-1521}:1521"
+    healthcheck:
+      test: ["CMD", "healthcheck.sh"]
+      interval: 10s
+      timeout: 5s
+      retries: 20
+      start_period: 60s
+
+  oracle11g:
+    image: wnameless/oracle-xe-11g
+    container_name: miu-db-test-oracle11g
+    environment:
+      ORACLE_ALLOW_REMOTE: "true"
+    ports:
+      - "1522:1521"
+    profiles:
+      - enterprise
+
+  db2:
+    image: icr.io/db2_community/db2:latest
+    container_name: miu-db-test-db2
+    privileged: true
+    environment:
+      LICENSE: "accept"
+      DB2INST1_PASSWORD: "TestPassword123!"
+      DBNAME: "testdb"
+    ports:
+      - "50000:50000"
+    profiles:
+      - enterprise
+
+  trino:
+    image: trinodb/trino:latest
+    container_name: miu-db-test-trino
+    ports:
+      - "8082:8080"
+    volumes:
+      - ../../tests/fixtures/trino/catalog:/etc/trino/catalog
+    profiles:
+      - enterprise
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/v1/info"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+
+  presto:
+    image: prestodb/presto:latest
+    container_name: miu-db-test-presto
+    ports:
+      - "8083:8080"
+    volumes:
+      - ../../tests/fixtures/presto/catalog:/etc/presto/catalog
+    profiles:
+      - enterprise
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/v1/info"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+
+  # Apache Impala ships no single-container image. The official quickstart runs
+  # Hive Metastore + statestored + catalogd + impalad together, all pinned to
+  # apache/impala:4.5.0-* with hive-site.xml mounted from impala_quickstart_conf/.
+  # Based on https://github.com/apache/impala/blob/master/docker/quickstart.yml
+  impala-hms:
+    image: apache/impala:4.5.0-impala_quickstart_hms
+    container_name: miu-db-test-impala-hms
+    command: ["hms"]
+    volumes:
+      - impala-warehouse:/var/lib/hive
+      - impala-warehouse:/user/hive/warehouse
+      - ./impala_quickstart_conf:/opt/hive/conf:ro
+    # hive-site.xml refers to the metastore as `thrift://quickstart-hive-metastore:9083`
+    # (matching the upstream quickstart). Alias so catalogd/impalad can resolve it.
+    networks:
+      impala-network:
+        aliases:
+          - quickstart-hive-metastore
+    profiles:
+      - enterprise
+
+  impala-statestored:
+    image: apache/impala:4.5.0-statestored
+    container_name: miu-db-test-impala-statestored
+    command: ["-redirect_stdout_stderr=false", "-logtostderr", "-v=1"]
+    volumes:
+      - ./impala_quickstart_conf:/opt/impala/conf:ro
+    # Impala hard-codes peer hostnames `statestored` and `catalogd` when the
+    # services register — alias so the other containers can reach it there.
+    networks:
+      impala-network:
+        aliases:
+          - statestored
+    profiles:
+      - enterprise
+
+  impala-catalogd:
+    image: apache/impala:4.5.0-catalogd
+    container_name: miu-db-test-impala-catalogd
+    depends_on:
+      - impala-statestored
+      - impala-hms
+    command:
+      - "-redirect_stdout_stderr=false"
+      - "-logtostderr"
+      - "-v=1"
+      - "-hms_event_polling_interval_s=1"
+      - "-invalidate_tables_timeout_s=999999"
+    volumes:
+      - impala-warehouse:/user/hive/warehouse
+      - ./impala_quickstart_conf:/opt/impala/conf:ro
+    networks:
+      impala-network:
+        aliases:
+          - catalogd
+    profiles:
+      - enterprise
+
+  impala:
+    image: apache/impala:4.5.0-impalad_coord_exec
+    container_name: miu-db-test-impala
+    depends_on:
+      - impala-statestored
+      - impala-catalogd
+    command:
+      - "-v=1"
+      - "-redirect_stdout_stderr=false"
+      - "-logtostderr"
+      - "-mt_dop_auto_fallback=true"
+      - "-default_query_options=mt_dop=4,default_file_format=parquet,default_transactional_type=insert_only"
+      - "-mem_limit=4gb"
+    environment:
+      - JAVA_TOOL_OPTIONS=-Xmx1g
+    ports:
+      - "${IMPALA_PORT:-21050}:21050"
+    volumes:
+      - impala-warehouse:/user/hive/warehouse
+      - ./impala_quickstart_conf:/opt/impala/conf:ro
+    networks:
+      - impala-network
+    healthcheck:
+      # /bin/sh in this image is dash, which doesn't support bash's /dev/tcp.
+      # The Impala image ships Python, so use that for a tiny TCP probe.
+      test:
+        - "CMD"
+        - "python"
+        - "-c"
+        - "import socket,sys; s=socket.socket(); s.settimeout(2); s.connect(('localhost',21050)); sys.exit(0)"
+      interval: 10s
+      timeout: 5s
+      retries: 30
+      start_period: 90s
+    profiles:
+      - enterprise
+
+  mariadb:
+    image: mariadb:11
+    container_name: miu-db-test-mariadb
+    environment:
+      MARIADB_ROOT_PASSWORD: "TestPassword123!"
+      MARIADB_USER: "testuser"
+      MARIADB_PASSWORD: "TestPassword123!"
+      MARIADB_DATABASE: "test_miu_db"
+    ports:
+      - "${MARIADB_PORT:-3307}:3306"
+    healthcheck:
+      test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+    tmpfs:
+      - /var/lib/mysql
+
+  # MariaDB with TIS-620 charset (Thai) - for charset testing
+  mariadb-tis620:
+    image: mariadb:11
+    container_name: miu-db-test-mariadb-tis620
+    command: --character-set-server=tis620 --collation-server=tis620_thai_ci
+    environment:
+      MARIADB_ROOT_PASSWORD: "TestPassword123!"
+      MARIADB_USER: "testuser"
+      MARIADB_PASSWORD: "TestPassword123!"
+      MARIADB_DATABASE: "test_miu_db"
+    ports:
+      - "${MARIADB_TIS620_PORT:-3310}:3306"
+    healthcheck:
+      test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+    tmpfs:
+      - /var/lib/mysql
+
+  # MariaDB with Latin1 charset - for charset testing
+  mariadb-latin1:
+    image: mariadb:11
+    container_name: miu-db-test-mariadb-latin1
+    command: --character-set-server=latin1 --collation-server=latin1_swedish_ci
+    environment:
+      MARIADB_ROOT_PASSWORD: "TestPassword123!"
+      MARIADB_USER: "testuser"
+      MARIADB_PASSWORD: "TestPassword123!"
+      MARIADB_DATABASE: "test_miu_db"
+    ports:
+      - "${MARIADB_LATIN1_PORT:-3311}:3306"
+    healthcheck:
+      test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+    tmpfs:
+      - /var/lib/mysql
+
+  cockroachdb:
+    image: cockroachdb/cockroach:latest
+    container_name: miu-db-test-cockroachdb
+    command: start-single-node --insecure
+    ports:
+      - "26257:26257"
+      - "8080:8080"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
+
+  turso:
+    image: ghcr.io/tursodatabase/libsql-server:latest
+    container_name: miu-db-test-turso
+    ports:
+      - "8081:8080"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+
+  surrealdb:
+    image: surrealdb/surrealdb:latest
+    container_name: miu-db-test-surrealdb
+    command: start --user root --pass root --bind 0.0.0.0:8000 memory
+    ports:
+      - "${SURREALDB_PORT:-8000}:8000"
+    healthcheck:
+      test: ["CMD", "/surreal", "is-ready", "--endpoint", "http://localhost:8000"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+
+
+  firebird:
+    image: firebirdsql/firebird:5.0.3-noble
+    container_name: miu-db-test-firebird
+    environment:
+      FIREBIRD_USER: "testuser"
+      FIREBIRD_PASSWORD: "TestPassword123!"
+      FIREBIRD_DATABASE: "/var/lib/firebird/data/test_miu_db.fdb"
+    ports:
+      - "3050:3050"
+    healthcheck:
+      # Firebird doesn't come with a straightforward health check, but this
+      # ought to be enough, I hope...
+      test: ["CMD", "nc", "-vz", "localhost", "3050"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+    tmpfs:
+      - /var/lib/firebird/data
+
+  bigquery:
+    image: ghcr.io/goccy/bigquery-emulator:latest
+    container_name: miu-db-test-bigquery
+    command:
+      - "--project=${BIGQUERY_PROJECT:-test-project}"
+      - "--dataset=${BIGQUERY_DATASET:-test_miu_db}"
+    ports:
+      - "9050:9050"
+      - "9060:9060"
+
+  # SSH server for testing SSH tunnel connections
+  # Connects to postgres container on docker network
+  ssh:
+    image: linuxserver/openssh-server:latest
+    container_name: miu-db-test-ssh
+    environment:
+      PUID: 1000
+      PGID: 1000
+      USER_NAME: testuser
+      USER_PASSWORD: testpass
+      PASSWORD_ACCESS: "true"
+      # Enable TCP forwarding for SSH tunnels
+      DOCKER_MODS: "linuxserver/mods:openssh-server-ssh-tunnel"
+    ports:
+      - "2222:2222"
+    volumes:
+      - ../../tests/fixtures/99-fix-sshd-config.sh:/custom-cont-init.d/99-fix-sshd-config
+    healthcheck:
+      test: ["CMD", "nc", "-z", "localhost", "2222"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+    depends_on:
+      - postgres-ssh
+
+  # PostgreSQL for SSH tunnel tests (separate instance accessible via SSH)
+  postgres-ssh:
+    image: postgres:16-alpine
+    container_name: miu-db-test-postgres-ssh
+    environment:
+      POSTGRES_USER: "testuser"
+      POSTGRES_PASSWORD: "TestPassword123!"
+      POSTGRES_DB: "test_miu_db"
+    ports:
+      - "5433:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U testuser -d test_miu_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+    tmpfs:
+      - /var/lib/postgresql/data
+
+  miniflare:
+    build:
+      context: ../../tests/fixtures/d1
+    container_name: miu-db-test-miniflare
+    command: ["wrangler", "dev", "--local", "--ip", "0.0.0.0", "--port", "8787"]
+    environment:
+      D1_ACCOUNT_ID: "test-account"
+      D1_API_TOKEN: "test-token"
+      D1_DATABASE: "test-d1"
+    ports:
+      - "8787:8787"
+    volumes:
+      - ../../tests/fixtures/d1/wrangler.toml:/app/wrangler.toml
+      - ../../tests/fixtures/d1/index.js:/app/index.js
+    working_dir: /app
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://localhost:8787/').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+
+  # Flight SQL server (using voltrondata/sqlflite - Flight SQL over DuckDB)
+  flight-sql:
+    image: voltrondata/sqlflite:latest
+    container_name: miu-db-test-flight-sql
+    environment:
+      TLS_ENABLED: "0"
+      SQLFLITE_PASSWORD: "test_password"
+      PRINT_QUERIES: "1"
+    ports:
+      - "31337:31337"
+    healthcheck:
+      test: ["CMD", "nc", "-vz", "localhost", "31337"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+
+volumes:
+  impala-warehouse:
+
+networks:
+  impala-network:
+    # Underscore-free FQDN: Java's URL parser rejects hostnames with underscores,
+    # which is why we can't let compose auto-prefix the network name.
+    name: impalanet

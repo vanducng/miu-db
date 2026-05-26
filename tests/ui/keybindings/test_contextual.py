@@ -1,0 +1,189 @@
+"""Tests for contextual keybindings that only work in specific contexts."""
+
+from __future__ import annotations
+
+import pytest
+
+from miu_db.core.keymap import get_keymap
+from miu_db.domains.shell.app.main import SSMSTUI
+
+from ..mocks import MockConnectionStore, MockSettingsStore, build_test_services, create_test_connection
+
+
+def _make_app(connection_store: MockConnectionStore | None = None) -> SSMSTUI:
+    connection_store = connection_store or MockConnectionStore()
+    settings_store = MockSettingsStore({"theme": "tokyo-night"})
+    services = build_test_services(
+        connection_store=connection_store,
+        settings_store=settings_store,
+    )
+    return SSMSTUI(services=services)
+
+
+class TestContextualKeybindings:
+    """Test that keybindings only work in their intended context."""
+
+    @pytest.mark.asyncio
+    async def test_focus_explorer_key_when_query_focused(self):
+        """Focus explorer key should focus explorer when query panel is focused."""
+        keymap = get_keymap()
+        focus_explorer_key = keymap.action("focus_explorer")
+
+        app = _make_app()
+
+        async with app.run_test(size=(100, 35)) as pilot:
+            # Focus query first
+            app.action_focus_query()
+            await pilot.pause()
+            assert app.query_input.has_focus
+
+            # Press focus explorer key
+            await pilot.press(focus_explorer_key)
+            await pilot.pause()
+
+            assert app.object_tree.has_focus
+
+    @pytest.mark.asyncio
+    async def test_focus_query_key_when_explorer_focused(self):
+        """Focus query key should focus query when explorer is focused."""
+        keymap = get_keymap()
+        focus_query_key = keymap.action("focus_query")
+
+        app = _make_app()
+
+        async with app.run_test(size=(100, 35)) as pilot:
+            # Focus explorer first
+            app.action_focus_explorer()
+            await pilot.pause()
+            assert app.object_tree.has_focus
+
+            # Press focus query key
+            await pilot.press(focus_query_key)
+            await pilot.pause()
+
+            assert app.query_input.has_focus
+
+    @pytest.mark.asyncio
+    async def test_edit_connection_blocked_when_query_focused(self):
+        """Edit connection key should NOT trigger edit_connection when query is focused."""
+        keymap = get_keymap()
+        edit_key = keymap.action("edit_connection")
+
+        connections = [create_test_connection("TestDB", "sqlite")]
+        mock_connections = MockConnectionStore(connections)
+
+        app = _make_app(mock_connections)
+
+        async with app.run_test(size=(100, 35)) as pilot:
+            # Focus query
+            app.action_focus_query()
+            await pilot.pause()
+
+            edit_called = False
+            original_edit = app.action_edit_connection
+
+            def mock_edit():
+                nonlocal edit_called
+                edit_called = True
+                original_edit()
+
+            app.action_edit_connection = mock_edit
+
+            # Press edit key - should focus explorer (since e is also focus_explorer), not edit connection
+            await pilot.press(edit_key)
+            await pilot.pause()
+
+            assert not edit_called
+
+    @pytest.mark.asyncio
+    async def test_visual_mode_selection_and_clear(self):
+        """Visual mode should select connections, escape should exit and clear."""
+        keymap = get_keymap()
+        visual_key = keymap.action("enter_tree_visual_mode")
+        exit_visual_key = keymap.action("exit_tree_visual_mode")
+
+        connections = [create_test_connection("TestDB", "sqlite")]
+        mock_connections = MockConnectionStore(connections)
+        app = _make_app(mock_connections)
+
+        async with app.run_test(size=(100, 35)) as pilot:
+            app.action_focus_explorer()
+            await pilot.pause()
+
+            node = app._find_connection_node_by_name("TestDB")
+            assert node is not None
+            app.object_tree.move_cursor(node)
+            await pilot.pause()
+
+            assert not app._selected_connection_names
+            assert app._tree_visual_mode_anchor is None
+
+            # Enter visual mode - selects current connection
+            await pilot.press(visual_key)
+            await pilot.pause()
+            assert "TestDB" in app._selected_connection_names
+            assert app._tree_visual_mode_anchor == "TestDB"
+
+            # Exit visual mode - clears selection
+            await pilot.press(exit_visual_key)
+            await pilot.pause()
+            assert not app._selected_connection_names
+            assert app._tree_visual_mode_anchor is None
+
+    @pytest.mark.asyncio
+    async def test_cursor_stays_on_connection_in_folder_after_connect(self):
+        """Cursor should stay on connection node after connecting to a connection in a folder."""
+        # Create connections in different folders
+        connections = [
+            create_test_connection("DB1", "sqlite", folder_path="Folder1"),
+            create_test_connection("DB2", "sqlite", folder_path="Folder2"),
+            create_test_connection("TargetDB", "sqlite", folder_path="Folder3"),
+        ]
+        mock_connections = MockConnectionStore(connections)
+        app = _make_app(mock_connections)
+
+        async with app.run_test(size=(100, 35)) as pilot:
+            app.action_focus_explorer()
+            await pilot.pause()
+
+            # Find and expand Folder3
+            folder_node = None
+            for child in app.object_tree.root.children:
+                data = getattr(child, "data", None)
+                if data and getattr(data, "name", None) == "Folder3":
+                    folder_node = child
+                    break
+            assert folder_node is not None, "Folder3 not found"
+            folder_node.expand()
+            await pilot.pause()
+
+            # Find TargetDB connection node inside Folder3
+            target_node = app._find_connection_node_by_name("TargetDB")
+            assert target_node is not None, "TargetDB connection not found"
+
+            # Move cursor to TargetDB
+            app.object_tree.move_cursor(target_node)
+            await pilot.pause()
+
+            # Verify cursor is on TargetDB
+            cursor_node = app.object_tree.cursor_node
+            assert cursor_node is not None
+            cursor_config = app._get_connection_config_from_node(cursor_node)
+            assert cursor_config is not None
+            assert cursor_config.name == "TargetDB"
+
+            # Press Enter to connect (this triggers tree refresh)
+            await pilot.press("enter")
+            # Wait for connection and tree refresh
+            await pilot.pause()
+            await pilot.pause()
+            await pilot.pause()
+
+            # Verify cursor is still on TargetDB after the tree refresh
+            cursor_node_after = app.object_tree.cursor_node
+            assert cursor_node_after is not None, "Cursor node is None after connect"
+            cursor_config_after = app._get_connection_config_from_node(cursor_node_after)
+            assert cursor_config_after is not None, "Cursor is not on a connection node"
+            assert cursor_config_after.name == "TargetDB", (
+                f"Cursor moved to {cursor_config_after.name} instead of staying on TargetDB"
+            )

@@ -1,0 +1,281 @@
+[build-system]
+requires = ["hatchling", "hatch-vcs"]
+build-backend = "hatchling.build"
+
+[project]
+name = "miu-db"
+description = "A fast, modal TUI for SQL databases. Vim keys, 25+ adapters, zero config."
+readme = "README.md"
+license = "MIT"
+requires-python = ">=3.10"
+authors = [
+    { name = "Duc Nguyen", email = "me@vanducng.dev" },
+    { name = "Peter (upstream sqlit author)" },
+]
+keywords = ["sql", "tui", "textual", "database", "terminal", "postgresql", "mysql", "sqlite", "bigquery", "snowflake", "miu-db"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Environment :: Console",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Database",
+]
+dependencies = [
+    "textual[syntax]>=6.10.0",
+    "textual-fastdatatable>=0.14.0",
+    "pyperclip>=1.8.2",
+    "keyring>=24.0.0",
+    "docker>=7.0.0",
+    "sqlparse>=0.5.0",
+]
+dynamic = ["version"]
+
+[project.optional-dependencies]
+all = [
+    "psycopg2-binary>=2.9.0",
+    "mssql-python>=1.1.0",
+    "PyMySQL>=1.1.0",
+    "oracledb>=2.0.0",
+    "ibm_db>=3.2.0",
+    "hdbcli>=2.20.0",
+    "teradatasql>=20.0.0",
+    "trino>=0.329.0",
+    "presto-python-client>=0.8.4",
+    "google-cloud-bigquery",
+    "google-cloud-bigquery-storage",
+    "pyarrow",
+    "google-cloud-spanner>=3.0.0",
+    "duckdb>=1.1.0",  # min avoids known CVEs
+    "clickhouse-connect>=0.7.0",
+    "requests>=2.32.4",  # min avoids known CVEs
+    "libsql>=0.1.0",
+    "firebirdsql>=1.3.5",
+    "sshtunnel>=0.4.0",
+    "paramiko>=2.0.0,<4.0.0",
+    "snowflake-connector-python>=3.7.0",
+    "redshift-connector",
+    "pyathena>=3.22.0",
+    "adbc-driver-flightsql>=1.0.0",
+    "impyla>=0.18.0",
+    "osquery>=3.0.0",
+    "surrealdb>=1.0.0",
+]
+postgres = ["psycopg2-binary>=2.9.0"]
+cockroachdb = ["psycopg2-binary>=2.9.0"]
+mssql = ["mssql-python>=1.1.0"]
+mysql = ["PyMySQL>=1.1.0"]
+mariadb = ["PyMySQL>=1.1.0"]
+oracle = ["oracledb>=2.0.0"]
+db2 = ["ibm_db>=3.2.0"]
+hana = ["hdbcli>=2.20.0"]
+teradata = ["teradatasql>=20.0.0"]
+trino = ["trino>=0.329.0"]
+presto = ["presto-python-client>=0.8.4"]
+bigquery = [
+    "google-cloud-bigquery",
+    "google-cloud-bigquery-storage",  # parallel reads via Storage Read API
+    "pyarrow",                        # required by Storage API for Arrow batches
+]
+spanner = ["google-cloud-spanner>=3.0.0"]
+redshift = ["redshift-connector"]
+duckdb = ["duckdb>=1.1.0"]  # min avoids known CVEs
+clickhouse = ["clickhouse-connect>=0.7.0"]
+d1 = ["requests>=2.32.4"]  # min avoids known CVEs
+turso = ["libsql>=0.1.0"]
+firebird = ["firebirdsql>=1.3.5"]
+snowflake = ["snowflake-connector-python>=3.7.0"]
+athena = ["pyathena>=3.22.0"]
+flight = ["adbc-driver-flightsql>=1.0.0"]
+impala = ["impyla>=0.18.0"]
+osquery = ["osquery>=3.0.0"]
+surrealdb = ["surrealdb>=1.0.0"]
+ssh = [
+    "sshtunnel>=0.4.0",
+    "paramiko>=2.0.0,<4.0.0",
+]
+
+[dependency-groups]
+test = [
+    "pytest>=7.0",
+    "pytest-timeout>=2.0",
+    "pytest-asyncio>=0.23.0",
+    "pytest-cov>=4.0",
+    "fakesnow>=0.0.1",
+]
+dev = [
+    { include-group = "test" },
+    "pytest-benchmark>=4.0",
+    "Faker>=28.0",
+    "build",
+    "ruff>=0.8.0",
+    "mypy>=1.0",
+    "pre-commit>=3.0",
+]
+
+[tool.hatch.version]
+source = "vcs"
+
+[tool.hatch.build.hooks.vcs]
+version-file = "miu_db/_version.py"
+
+[tool.ruff]
+target-version = "py310"
+line-length = 240
+
+[tool.ruff.lint]
+select = [
+    "E",      # pycodestyle errors
+    "F",      # pyflakes
+    "I",      # isort
+    "UP",     # pyupgrade
+    "B",      # flake8-bugbear (common gotchas)
+    "S",      # flake8-bandit (security)
+    "C90",    # mccabe complexity
+    "SIM",    # flake8-simplify
+    "RUF",    # ruff-specific rules
+]
+
+ignore = [
+    "S101",    # assert used (fine for internal checks)
+    "S603",    # subprocess without shell=True (intentional - CLI tool)
+    "S607",    # partial executable path (CLI tool needs to call system commands)
+    "S608",    # SQL injection (this is a SQL tool - queries are intentional)
+    "S301",    # pickle (if used, likely intentional)
+    "S110",    # try-except-pass (intentional for TUI resilience - prevents UI crashes)
+    "SIM105",  # contextlib.suppress (same as S110 - try-except-pass is clearer here)
+    "SIM108",  # ternary operator (if-else is often more readable)
+    "S105",    # hardcoded password (false positives on enum values and parameter names)
+    "S106",    # hardcoded password func arg (false positives - these are type indicators)
+    "S107",    # hardcoded password default (false positive - password_type parameter)
+    "RUF012",  # mutable class default (Textual BINDINGS pattern - framework convention)
+    "SIM102",  # collapsible if (explicit nesting often clearer)
+    "RUF005",  # collection concatenation (+ is clearer than unpacking for small lists)
+    "B905",    # zip strict (not needed for same-length internal data)
+    "S606",    # start process no shell (os.execv is intentional for restart)
+    "S602",    # subprocess shell=True (intentional for Windows terminal launch)
+    "S103",    # chmod permissive (755 needed for executable scripts)
+    "SIM118",  # dict.keys() iteration (works fine, minor style preference)
+    "SIM103",  # needless bool return (explicit is clearer)
+    "SIM101",  # duplicate isinstance (split checks can be clearer)
+    "SIM115",  # open context manager (not needed for immediate .read())
+    "RUF022",  # unsorted __all__ (organized by category is better than alphabetical)
+]
+
+[tool.ruff.lint.mccabe]
+max-complexity = 25  # complex domain logic in cloud providers and TUI screens
+
+[tool.ruff.lint.per-file-ignores]
+"tests/*" = ["S101", "S106", "S108"]
+"miu_db/domains/query/completion/completion.py" = ["C901"]  # SQL autocomplete is inherently complex
+
+[project.scripts]
+miu-db = "miu_db.cli:main"
+
+[project.urls]
+Homepage = "https://github.com/vanducng/miu-db"
+Repository = "https://github.com/vanducng/miu-db"
+Issues = "https://github.com/vanducng/miu-db/issues"
+Changelog = "https://github.com/vanducng/miu-db/blob/main/CHANGELOG.md"
+
+[tool.hatch.build.targets.wheel]
+packages = ["miu_db"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+python_functions = ["test_*"]
+addopts = "-v"
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"
+markers = [
+    "sqlite: SQLite database tests",
+    "mssql: SQL Server database tests",
+    "postgresql: PostgreSQL database tests",
+    "mysql: MySQL database tests",
+    "oracle: Oracle database tests",
+    "firebird: Firebird database tests",
+    "clickhouse: ClickHouse database tests",
+    "flight: Apache Arrow Flight SQL database tests",
+    "spanner: Google Cloud Spanner database tests",
+    "asyncio: async tests",
+    "integration: integration tests (may require external services)",
+]
+
+[tool.coverage.run]
+source = ["miu_db"]
+branch = true
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "if TYPE_CHECKING:",
+    "if __name__ == .__main__.:",
+]
+
+[tool.mypy]
+python_version = "3.10"
+warn_return_any = true
+warn_unused_ignores = true
+disallow_untyped_defs = true
+check_untyped_defs = true
+warn_redundant_casts = true
+strict_optional = true
+exclude = ["tests/"]
+namespace_packages = true
+
+[[tool.mypy.overrides]]
+module = [
+    "pymysql",
+    "oracledb",
+    "duckdb",
+    "clickhouse_connect",
+    "libsql",
+    "snowflake.connector",
+    "sshtunnel",
+    "paramiko",
+    "docker",
+    "docker.errors",
+    "ibm_db",
+    "ibm_db_dbi",
+    "hdbcli",
+    "hdbcli.dbapi",
+    "teradatasql",
+    "trino",
+    "trino.dbapi",
+    "trino.auth",
+    "prestodb",
+    "prestodb.dbapi",
+    "prestodb.auth",
+    "pyarrow",
+    "pyarrow.flight",
+    "adbc_driver_flightsql",
+    "adbc_driver_flightsql.dbapi",
+    "adbc_driver_manager",
+    "textual_fastdatatable",
+    "impala",
+    "impala.dbapi",
+    "osquery",
+    "surrealdb",
+    "google.cloud",
+    "google.cloud.bigquery",
+    "google.cloud.bigquery.dbapi",
+    "google.cloud.spanner",
+    "google.cloud.spanner_dbapi",
+    "google.api_core",
+    "google.api_core.client_options",
+    "google.auth",
+    "google.auth.credentials",
+    "google.oauth2",
+    "google.oauth2.service_account",
+]
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = "mssql_python"
+ignore_missing_imports = true

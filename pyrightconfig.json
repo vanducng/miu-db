@@ -1,0 +1,11 @@
+{
+  "include": ["miu_db"],
+  "exclude": ["tests", "**/__pycache__", ".venv", "venv"],
+  "pythonVersion": "3.10",
+  "typeCheckingMode": "basic",
+  "useLibraryCodeForTypes": true,
+  "reportUnusedVariable": "warning",
+  "reportMissingImports": false,
+  "reportMissingTypeStubs": false,
+  "stubPath": ""
+}

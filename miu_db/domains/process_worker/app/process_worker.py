@@ -1,0 +1,559 @@
+"""Query execution worker for process isolation."""
+
+from __future__ import annotations
+
+import pickle
+import threading
+import time
+from collections import deque
+from dataclasses import dataclass, field
+from multiprocessing.connection import Connection
+from typing import Any
+
+from miu_db.domains.connections.domain.config import ConnectionConfig
+from miu_db.domains.connections.providers.catalog import get_provider
+from miu_db.domains.connections.providers.config_service import normalize_connection_config
+from miu_db.domains.connections.providers.model import (
+    IndexInspector,
+    ProcedureInspector,
+    SequenceInspector,
+    TriggerInspector,
+)
+from miu_db.domains.query.app.cancellable import CancellableQuery
+from miu_db.domains.query.app.multi_statement import split_statements
+from miu_db.domains.query.app.query_service import NonQueryResult, QueryResult
+
+
+def _tunnel_key(config: ConnectionConfig) -> tuple[Any, ...] | None:
+    tunnel = config.tunnel
+    if tunnel is None or not tunnel.enabled:
+        return None
+    return (
+        tunnel.host,
+        tunnel.port,
+        tunnel.username,
+        tunnel.auth_type,
+        tunnel.password,
+        tunnel.key_path,
+    )
+
+
+@dataclass
+class _WorkerState:
+    conn: Connection
+    provider_cache: dict[str, Any] = field(default_factory=dict)
+    tunnel: Any | None = None
+    tunnel_key: tuple[Any, ...] | None = None
+    current_id: int | None = None
+    current_query: CancellableQuery | None = None
+    current_thread: threading.Thread | None = None
+    send_lock: threading.Lock = field(default_factory=threading.Lock)
+    queue: deque[dict[str, Any]] = field(default_factory=deque)
+
+    def send(self, payload: dict[str, Any]) -> None:
+        with self.send_lock:
+            try:
+                self.conn.send(payload)
+                return
+            except (TypeError, AttributeError, pickle.PickleError) as exc:
+                # Result isn't picklable. Replace with an error so the
+                # client surfaces it instead of hanging on recv().
+                fallback = {
+                    "type": "error",
+                    "id": payload.get("id"),
+                    "message": (
+                        f"Result could not be serialized across the process "
+                        f"worker pipe: {type(exc).__name__}: {exc}"
+                    ),
+                }
+                try:
+                    self.conn.send(fallback)
+                except Exception:
+                    pass
+            except Exception:
+                # Pipe closed or similar; nothing we can do.
+                pass
+
+    def _ensure_tunnel(self, config: ConnectionConfig) -> Any | None:
+        key = _tunnel_key(config)
+        if key is None:
+            self._close_tunnel()
+            return None
+        if key != self.tunnel_key:
+            self._close_tunnel()
+            from miu_db.domains.connections.app.tunnel import create_ssh_tunnel
+
+            tunnel, _, _ = create_ssh_tunnel(config)
+            self.tunnel = tunnel
+            self.tunnel_key = key
+        return self.tunnel
+
+    def _close_tunnel(self) -> None:
+        if self.tunnel is not None:
+            try:
+                self.tunnel.stop()
+            except Exception:
+                pass
+            self.tunnel = None
+        self.tunnel_key = None
+
+    def _start_query(self, message: dict[str, Any]) -> None:
+        query_id = int(message.get("id", 0))
+        query = str(message.get("query", ""))
+        max_rows = message.get("max_rows", None)
+        config_payload = message.get("config", {})
+        config = ConnectionConfig.from_dict(config_payload)
+        config = normalize_connection_config(config)
+        db_type = str(message.get("db_type") or config.db_type or "").strip()
+        if not db_type:
+            self.send(
+                {
+                    "type": "error",
+                    "id": query_id,
+                    "message": "Missing database type for process worker.",
+                }
+            )
+            return
+
+        if len(split_statements(query)) > 1:
+            self.send(
+                {
+                    "type": "error",
+                    "id": query_id,
+                    "message": "Multi-statement queries are not supported in the process worker.",
+                }
+            )
+            return
+
+        provider = self._get_provider(db_type)
+        if provider is None:
+            self.send(
+                {
+                    "type": "error",
+                    "id": query_id,
+                    "message": f"Unknown database type for process worker: {db_type}",
+                }
+            )
+            return
+
+        tunnel = self._ensure_tunnel(config)
+        cancellable = CancellableQuery(
+            sql=query,
+            config=config,
+            provider=provider,
+            tunnel=tunnel,
+        )
+        self.current_id = query_id
+        self.current_query = cancellable
+
+        def run() -> None:
+            start = time.perf_counter()
+            try:
+                result = cancellable.execute(max_rows=max_rows)
+                elapsed_ms = (time.perf_counter() - start) * 1000
+                if isinstance(result, QueryResult):
+                    self.send(
+                        {
+                            "type": "result",
+                            "id": query_id,
+                            "kind": "query",
+                            "result": result,
+                            "elapsed_ms": elapsed_ms,
+                        }
+                    )
+                elif isinstance(result, NonQueryResult):
+                    self.send(
+                        {
+                            "type": "result",
+                            "id": query_id,
+                            "kind": "non_query",
+                            "result": result,
+                            "elapsed_ms": elapsed_ms,
+                        }
+                    )
+                else:
+                    self.send(
+                        {
+                            "type": "error",
+                            "id": query_id,
+                            "message": "Unsupported query result.",
+                        }
+                    )
+            except Exception as exc:
+                if cancellable.is_cancelled or "cancelled" in str(exc).lower():
+                    self.send(
+                        {
+                            "type": "cancelled",
+                            "id": query_id,
+                        }
+                    )
+                else:
+                    self.send(
+                        {
+                            "type": "error",
+                            "id": query_id,
+                            "message": str(exc),
+                        }
+                    )
+
+        self.current_thread = threading.Thread(target=run, daemon=True)
+        self.current_thread.start()
+
+    def _handle_schema_message(self, message: dict[str, Any]) -> None:
+        op = message.get("op")
+        if op == "columns":
+            self._start_schema_columns(message)
+        elif op == "folder_items":
+            self._start_schema_folder_items(message)
+        else:
+            self.send(
+                {
+                    "type": "error",
+                    "id": int(message.get("id", 0)),
+                    "message": f"Unknown schema operation: {op}",
+                }
+            )
+
+    def _handle_message(self, message: dict[str, Any]) -> None:
+        message_type = message.get("type")
+        if message_type == "exec":
+            self._start_query(message)
+        elif message_type == "schema":
+            self._handle_schema_message(message)
+
+    def _enqueue_message(self, message: dict[str, Any]) -> None:
+        self.queue.append(message)
+
+    def _maybe_start_next(self) -> None:
+        while self.current_thread is None and self.queue:
+            message = self.queue.popleft()
+            self._handle_message(message)
+
+    def _start_schema_columns(self, message: dict[str, Any]) -> None:
+        query_id = int(message.get("id", 0))
+        name = str(message.get("name", "")).strip()
+        if not name:
+            self.send(
+                {
+                    "type": "error",
+                    "id": query_id,
+                    "message": "Missing table name for schema request.",
+                }
+            )
+            return
+        database = message.get("database")
+        schema = message.get("schema")
+        config_payload = message.get("config", {})
+        config = ConnectionConfig.from_dict(config_payload)
+        config = normalize_connection_config(config)
+        db_type = str(message.get("db_type") or config.db_type or "").strip()
+        if not db_type:
+            self.send(
+                {
+                    "type": "error",
+                    "id": query_id,
+                    "message": "Missing database type for schema request.",
+                }
+            )
+            return
+
+        provider = self._get_provider(db_type)
+        if provider is None:
+            self.send(
+                {
+                    "type": "error",
+                    "id": query_id,
+                    "message": f"Unknown database type for schema request: {db_type}",
+                }
+            )
+            return
+
+        caps = provider.capabilities
+        if database and not caps.supports_cross_database_queries:
+            config = provider.apply_database_override(config, database)
+            db_arg = None
+        else:
+            db_arg = database if database else None
+
+        tunnel = self._ensure_tunnel(config)
+        self.current_id = query_id
+        self.current_query = None
+
+        def run() -> None:
+            conn = None
+            try:
+                connect_config = config
+                if tunnel is not None:
+                    try:
+                        local_port = getattr(tunnel, "local_bind_port", None)
+                    except Exception:
+                        local_port = None
+                    if local_port:
+                        connect_config = config.with_endpoint(host="127.0.0.1", port=str(local_port))
+                conn = provider.connection_factory.connect(connect_config)
+                try:
+                    provider.post_connect(conn, connect_config)
+                except Exception:
+                    pass
+                inspector = provider.schema_inspector
+                columns = inspector.get_columns(conn, name, db_arg, schema)
+                self.send(
+                    {
+                        "type": "schema",
+                        "op": "columns",
+                        "id": query_id,
+                        "columns": columns,
+                    }
+                )
+            except Exception as exc:
+                if "cancelled" in str(exc).lower():
+                    self.send(
+                        {
+                            "type": "cancelled",
+                            "id": query_id,
+                        }
+                    )
+                else:
+                    self.send(
+                        {
+                            "type": "error",
+                            "id": query_id,
+                            "message": str(exc),
+                        }
+                    )
+            finally:
+                if conn is not None:
+                    try:
+                        close_fn = getattr(conn, "close", None)
+                        if callable(close_fn):
+                            close_fn()
+                    except Exception:
+                        pass
+
+        self.current_thread = threading.Thread(target=run, daemon=True)
+        self.current_thread.start()
+
+    def _start_schema_folder_items(self, message: dict[str, Any]) -> None:
+        query_id = int(message.get("id", 0))
+        folder_type = str(message.get("folder_type", "")).strip()
+        if not folder_type:
+            self.send(
+                {
+                    "type": "error",
+                    "id": query_id,
+                    "message": "Missing folder type for schema request.",
+                }
+            )
+            return
+        database = message.get("database")
+        config_payload = message.get("config", {})
+        config = ConnectionConfig.from_dict(config_payload)
+        config = normalize_connection_config(config)
+        db_type = str(message.get("db_type") or config.db_type or "").strip()
+        if not db_type:
+            self.send(
+                {
+                    "type": "error",
+                    "id": query_id,
+                    "message": "Missing database type for schema request.",
+                }
+            )
+            return
+
+        provider = self._get_provider(db_type)
+        if provider is None:
+            self.send(
+                {
+                    "type": "error",
+                    "id": query_id,
+                    "message": f"Unknown database type for schema request: {db_type}",
+                }
+            )
+            return
+
+        caps = provider.capabilities
+        if database and not caps.supports_cross_database_queries:
+            config = provider.apply_database_override(config, database)
+            db_arg = None
+        else:
+            db_arg = database if database else None
+
+        tunnel = self._ensure_tunnel(config)
+        self.current_id = query_id
+        self.current_query = None
+
+        def run() -> None:
+            conn = None
+            try:
+                connect_config = config
+                if tunnel is not None:
+                    try:
+                        local_port = getattr(tunnel, "local_bind_port", None)
+                    except Exception:
+                        local_port = None
+                    if local_port:
+                        connect_config = config.with_endpoint(host="127.0.0.1", port=str(local_port))
+                conn = provider.connection_factory.connect(connect_config)
+                try:
+                    provider.post_connect(conn, connect_config)
+                except Exception:
+                    pass
+                inspector = provider.schema_inspector
+                items: list[Any] = []
+                if folder_type == "tables":
+                    raw_data = inspector.get_tables(conn, db_arg)
+                    items = [("table", schema, name) for schema, name in raw_data]
+                elif folder_type == "views":
+                    raw_data = inspector.get_views(conn, db_arg)
+                    items = [("view", schema, name) for schema, name in raw_data]
+                elif folder_type == "databases":
+                    items = list(inspector.get_databases(conn))
+                elif folder_type == "indexes":
+                    if caps.supports_indexes and isinstance(inspector, IndexInspector):
+                        items = [
+                            ("index", item.name, item.table_name)
+                            for item in inspector.get_indexes(conn, db_arg)
+                        ]
+                elif folder_type == "triggers":
+                    if caps.supports_triggers and isinstance(inspector, TriggerInspector):
+                        items = [
+                            ("trigger", item.name, item.table_name)
+                            for item in inspector.get_triggers(conn, db_arg)
+                        ]
+                elif folder_type == "sequences":
+                    if caps.supports_sequences and isinstance(inspector, SequenceInspector):
+                        items = [
+                            ("sequence", item.name, "")
+                            for item in inspector.get_sequences(conn, db_arg)
+                        ]
+                elif folder_type == "procedures":
+                    if caps.supports_stored_procedures and isinstance(inspector, ProcedureInspector):
+                        raw_data = inspector.get_procedures(conn, db_arg)
+                        items = [("procedure", "", name) for name in raw_data]
+
+                self.send(
+                    {
+                        "type": "schema",
+                        "op": "folder_items",
+                        "id": query_id,
+                        "items": items,
+                    }
+                )
+            except Exception as exc:
+                if "cancelled" in str(exc).lower():
+                    self.send(
+                        {
+                            "type": "cancelled",
+                            "id": query_id,
+                        }
+                    )
+                else:
+                    self.send(
+                        {
+                            "type": "error",
+                            "id": query_id,
+                            "message": str(exc),
+                        }
+                    )
+            finally:
+                if conn is not None:
+                    try:
+                        close_fn = getattr(conn, "close", None)
+                        if callable(close_fn):
+                            close_fn()
+                    except Exception:
+                        pass
+
+        self.current_thread = threading.Thread(target=run, daemon=True)
+        self.current_thread.start()
+
+    def _cancel_current(self, query_id: int) -> None:
+        if self.current_id != query_id:
+            return
+        if self.current_query is not None:
+            self.current_query.cancel()
+
+    def _cleanup_current(self) -> None:
+        if self.current_thread and not self.current_thread.is_alive():
+            self.current_thread.join(timeout=0)
+            self.current_thread = None
+            self.current_query = None
+            self.current_id = None
+
+    def _get_provider(self, db_type: str) -> Any | None:
+        if db_type in self.provider_cache:
+            return self.provider_cache[db_type]
+        try:
+            provider = get_provider(db_type)
+        except Exception:
+            return None
+        self.provider_cache[db_type] = provider
+        return provider
+
+
+def run_process_worker(conn: Connection, stderr_log_path: str | None = None) -> None:
+    """Process entrypoint for query execution.
+
+    `stderr_log_path`, if provided, redirects the subprocess's stderr to that
+    file so the parent can surface unexpected crashes (segfaults, import
+    errors, top-level tracebacks) when the pipe dies.
+    """
+    import sys
+    import traceback
+
+    if stderr_log_path:
+        try:
+            # Kept open for the subprocess lifetime (file is written to on
+            # every stderr emission and closed by process teardown).
+            stderr_file = open(stderr_log_path, "w", buffering=1)
+            sys.stderr = stderr_file
+        except Exception:
+            pass
+    state = _WorkerState(conn=conn)
+    try:
+        while True:
+            state._cleanup_current()
+            state._maybe_start_next()
+            if conn.poll(0.1):
+                try:
+                    message = conn.recv()
+                except EOFError:
+                    break
+                message_type = message.get("type")
+                if message_type == "shutdown":
+                    break
+                try:
+                    if message_type in {"exec", "schema"}:
+                        if state.current_thread is not None and state.current_thread.is_alive():
+                            state._enqueue_message(message)
+                        else:
+                            state._handle_message(message)
+                    elif message_type == "cancel":
+                        state._cancel_current(int(message.get("id", 0)))
+                except Exception as exc:
+                    # Any uncaught failure in message dispatch must not kill
+                    # the worker — the client would see a silent BrokenPipe
+                    # on the next send. Report the failure instead. Guard
+                    # against a malformed `message` (non-dict) that could
+                    # have triggered the exception in the first place.
+                    safe_message = message if isinstance(message, dict) else {}
+                    state.send(
+                        {
+                            "type": "error",
+                            "id": int(safe_message.get("id", 0)),
+                            "message": f"{type(exc).__name__}: {exc}",
+                        }
+                    )
+    except BaseException:
+        # Any uncaught exception (including SystemExit) gets a traceback
+        # written to stderr before the subprocess exits — the parent reads
+        # this file to surface a useful error instead of "pipe closed".
+        traceback.print_exc()
+        raise
+    finally:
+        state._cancel_current(state.current_id or 0)
+        state._close_tunnel()
+        try:
+            conn.close()
+        except Exception:
+            pass

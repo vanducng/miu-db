@@ -1,0 +1,10 @@
+services:
+  test-debian:
+    build:
+      context: ../../..
+      dockerfile: tests/integration/python_packages/dockerfiles/debian.Dockerfile
+    container_name: miu-db-test-python-driver-install
+    environment:
+      MIU_DB_TEST_SCREENSHOTS_DIR: /artifacts
+    volumes:
+      - ./artifacts:/artifacts

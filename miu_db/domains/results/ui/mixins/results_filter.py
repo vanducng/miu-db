@@ -1,0 +1,645 @@
+"""Results filter mixin for SSMSTUI."""
+
+from __future__ import annotations
+
+from typing import TYPE_CHECKING, Any
+
+from rich.markup import escape as escape_markup
+
+from miu_db.shared.core.utils import flatten_pasted_text, fuzzy_match, highlight_matches
+from miu_db.shared.ui.protocols import ResultsFilterMixinHost
+from miu_db.shared.ui.widgets import MiuDataTable
+
+if TYPE_CHECKING:
+    pass
+
+
+class ResultsFilterMixin:
+    """Mixin providing results table filter functionality.
+
+    By default, uses fast case-insensitive substring matching.
+    Prefix search with ~ for fuzzy matching (e.g., "~foo" for fuzzy search).
+    """
+
+    _results_filter_visible: bool = False
+    _results_filter_text: str = ""
+    _results_filter_matches: list[int] = []  # Row indices that match
+    _results_filter_match_index: int = 0
+    _results_filter_original_columns: list[str] = []
+    _results_filter_original_rows: list[tuple] = []  # Store original rows for restore
+    _results_filter_row_texts: list[str] = []  # Cached row strings for filtering
+    _results_filter_row_texts_lower: list[str] = []  # Cached lowercase row strings
+    _results_filter_matching_rows: list[tuple] = []  # Current filtered rows
+    _results_filter_fuzzy: bool = False  # Whether fuzzy mode is active
+    _results_filter_debounce_timer: Any = None  # Timer for debounced updates
+    _results_filter_pending_update: bool = False  # Whether an update is pending
+    _results_filter_stacked: bool = False
+    _results_filter_target_section: Any | None = None
+    _results_filter_target_table: Any | None = None
+    # Truly-original rows/columns preserved across accept so re-opening the
+    # filter always sees the full query result, not the last filtered subset.
+    _results_filter_saved_rows: list[tuple] | None = None
+    _results_filter_saved_columns: list[str] | None = None
+    # The previously-committed filtered subset, stashed on `/` re-entry so
+    # that an Escape-without-typing restores the prior commit instead of
+    # losing it to the full view.
+    _results_filter_prior_commit_rows: list[tuple] | None = None
+
+    # Maximum matches to display (performance optimization)
+    MAX_FILTER_MATCHES = 5000
+
+    @staticmethod
+    def _get_debounce_ms(row_count: int) -> int:
+        """Get debounce delay based on row count."""
+        if row_count < 1000:
+            return 0
+        elif row_count < 10000:
+            return 50
+        elif row_count < 50000:
+            return 100
+        elif row_count < 100000:
+            return 150
+        else:
+            return 200
+
+    def action_results_filter(self: ResultsFilterMixinHost) -> None:
+        """Open the results filter."""
+        self._results_filter_stacked = False
+        self._results_filter_target_section = None
+        self._results_filter_target_table = None
+        self._results_filter_original_columns = []
+        self._results_filter_row_texts = []
+        self._results_filter_row_texts_lower = []
+
+        if not self.results_table.has_focus:
+            self.results_table.focus()
+
+        if self.results_area.has_class("stacked-mode"):
+            section, table = self._get_active_stacked_results_target()
+            if section is None or table is None:
+                self.notify("No results to filter", severity="warning")
+                return
+            columns = list(getattr(section, "result_columns", []))
+            rows = list(getattr(section, "result_rows", []))
+            if not columns or not rows:
+                self.notify("No results to filter", severity="warning")
+                return
+            self._results_filter_stacked = True
+            self._results_filter_target_section = section
+            self._results_filter_target_table = table
+            self._results_filter_original_columns = columns
+            self._results_filter_original_rows = rows
+            self._results_filter_matching_rows = list(rows)
+            self._prime_results_filter_cache(rows)
+            self.results_area.add_class("results-filter-active")
+            try:
+                table.focus()
+            except Exception:
+                pass
+        else:
+            # Prefer the truly-original snapshot if a previous accept stashed
+            # it; this ensures re-opening the filter always starts from the
+            # full result set, not the last committed filtered subset.
+            if self._results_filter_saved_rows is not None:
+                base_columns = list(self._results_filter_saved_columns or [])
+                base_rows = list(self._results_filter_saved_rows)
+                # Stash the currently-committed filtered subset so an Escape
+                # without typing can restore it instead of the full set.
+                self._results_filter_prior_commit_rows = list(self._last_result_rows)
+                # Restore the full view immediately so the user sees all rows
+                # while typing into an empty filter.
+                self._last_result_columns = base_columns
+                self._last_result_rows = base_rows
+                self._replace_results_table(base_columns, base_rows)
+            elif not self._last_result_rows:
+                self.notify("No results to filter", severity="warning")
+                return
+            else:
+                base_columns = list(self._last_result_columns)
+                base_rows = list(self._last_result_rows)
+            self._results_filter_original_columns = base_columns
+            self._results_filter_original_rows = base_rows
+            # Initially all rows match (no filter applied)
+            self._results_filter_matching_rows = list(base_rows)
+            self._prime_results_filter_cache(base_rows)
+
+        self._results_filter_visible = True
+        self._results_filter_text = ""
+        self._results_filter_matches = []
+        self._results_filter_match_index = 0
+
+        self.results_filter_input.show()
+        # Just update the filter display, table already has the data
+        total = len(self._results_filter_original_rows)
+        self.results_filter_input.set_filter("", 0, total)
+        self._update_footer_bindings()
+
+    def action_results_filter_close(self: ResultsFilterMixinHost) -> None:
+        """Close the results filter and restore original data."""
+        self._results_filter_visible = False
+        self._results_filter_text = ""
+        self._results_filter_row_texts = []
+        self._results_filter_row_texts_lower = []
+        self.results_filter_input.hide()
+
+        if self._results_filter_stacked:
+            self.results_area.remove_class("results-filter-active")
+            self._restore_results_table()
+        else:
+            # If user opened `/` on top of a prior commit and pressed Escape
+            # without typing, restore the prior commit so they don't lose it.
+            # Otherwise restore the full original view.
+            if self._results_filter_prior_commit_rows is not None:
+                restore_rows = self._results_filter_prior_commit_rows
+                self._replace_results_table(self._last_result_columns, restore_rows)
+                self._last_result_rows = list(restore_rows)
+                # Saved snapshot stays — the prior commit is still active,
+                # so a future `/` should still restore the full view.
+            elif self._results_filter_original_rows:
+                self._replace_results_table(self._last_result_columns, self._results_filter_original_rows)
+                self._last_result_rows = list(self._results_filter_original_rows)
+                # No prior commit — full view restored, snapshot no longer needed.
+                self._results_filter_saved_rows = None
+                self._results_filter_saved_columns = None
+            self._results_filter_prior_commit_rows = None
+
+        self._update_footer_bindings()
+        self._results_filter_stacked = False
+        self._results_filter_target_section = None
+        self._results_filter_target_table = None
+
+    def action_results_filter_accept(self: ResultsFilterMixinHost) -> None:
+        """Accept current filter selection and close, keeping filtered view."""
+        self._results_filter_visible = False
+        self._results_filter_text = ""
+        self._results_filter_row_texts = []
+        self._results_filter_row_texts_lower = []
+        self.results_filter_input.hide()
+
+        if self._results_filter_stacked:
+            self.results_area.remove_class("results-filter-active")
+            if self._results_filter_target_section is not None:
+                self._results_filter_target_section.result_rows = list(self._results_filter_matching_rows)
+            # Stacked-mode does not stash a saved snapshot — each section owns
+            # its own rows on the section object, and re-opening `/` always
+            # re-reads from the section's current state. The saved-snapshot
+            # path below applies to single-result mode only.
+        else:
+            # Stash the truly-original rows so pressing `/` again can restore
+            # the full view even though the committed view is filtered.
+            self._results_filter_saved_columns = list(self._results_filter_original_columns)
+            self._results_filter_saved_rows = list(self._results_filter_original_rows)
+            # The new accept supersedes any stashed prior-commit view.
+            self._results_filter_prior_commit_rows = None
+            # Update stored rows to the filtered data
+            self._last_result_rows = list(self._results_filter_matching_rows)
+
+        self._update_footer_bindings()
+        self._results_filter_stacked = False
+        self._results_filter_target_section = None
+        self._results_filter_target_table = None
+
+    def action_results_filter_next(self: ResultsFilterMixinHost) -> None:
+        """Move to next filter match."""
+        if not self._results_filter_matches:
+            return
+        self._results_filter_match_index = (self._results_filter_match_index + 1) % len(
+            self._results_filter_matches
+        )
+        self._jump_to_current_results_match()
+
+    def action_results_filter_prev(self: ResultsFilterMixinHost) -> None:
+        """Move to previous filter match."""
+        if not self._results_filter_matches:
+            return
+        self._results_filter_match_index = (self._results_filter_match_index - 1) % len(
+            self._results_filter_matches
+        )
+        self._jump_to_current_results_match()
+
+    def _jump_to_current_results_match(self: ResultsFilterMixinHost) -> None:
+        """Jump to the current match in the results table."""
+        if not self._results_filter_matches:
+            return
+        table = (
+            self._results_filter_target_table
+            if self._results_filter_stacked and self._results_filter_target_table is not None
+            else self.results_table
+        )
+        # The match index corresponds to row in the filtered table
+        row_idx = self._results_filter_match_index
+        if row_idx < table.row_count:
+            table.move_cursor(row=row_idx, column=0)
+
+    def on_key(self: ResultsFilterMixinHost, event: Any) -> None:
+        """Handle key events when results filter is active."""
+        if not self._results_filter_visible:
+            # Pass to next mixin in chain if it has on_key
+            parent_on_key = getattr(super(), "on_key", None)
+            if callable(parent_on_key):
+                parent_on_key(event)
+            return
+
+        key = event.key
+
+        # Close filter and restore original data
+        if key == "escape":
+            self.action_results_filter_close()
+            event.prevent_default()
+            event.stop()
+            return
+
+        # Accept filter and keep filtered data
+        if key == "enter":
+            self.action_results_filter_accept()
+            event.prevent_default()
+            event.stop()
+            return
+
+        # Handle backspace
+        if key == "backspace":
+            if self._results_filter_text:
+                self._results_filter_text = self._results_filter_text[:-1]
+                self._schedule_filter_update()
+            else:
+                # Exit filter when backspacing with no text
+                self.action_results_filter_close()
+            event.prevent_default()
+            event.stop()
+            return
+
+        # Ctrl+U: clear the entire filter text in one stroke
+        if key == "ctrl+u":
+            if self._results_filter_text:
+                self._results_filter_text = ""
+                self._schedule_filter_update()
+            event.prevent_default()
+            event.stop()
+            return
+
+        # Handle printable characters - use event.character for proper shift support
+        char = getattr(event, "character", None)
+        if char and char.isprintable():
+            self._results_filter_text += char
+            self._schedule_filter_update()
+            event.prevent_default()
+            event.stop()
+            return
+
+        # For other keys, pass to parent
+        parent_on_key = getattr(super(), "on_key", None)
+        if callable(parent_on_key):
+            parent_on_key(event)
+
+    def _reset_filter_snapshots(self: ResultsFilterMixinHost) -> None:
+        """Clear stashed pre-filter snapshots.
+
+        Called on fresh query results so stale snapshots from a previous
+        committed filter cannot leak into the new result set.
+        """
+        self._results_filter_saved_rows = None
+        self._results_filter_saved_columns = None
+        self._results_filter_prior_commit_rows = None
+
+    def on_paste(self: ResultsFilterMixinHost, event: Any) -> None:
+        """Append clipboard content to the results filter when active."""
+        text = getattr(event, "text", "") or ""
+        flat = flatten_pasted_text(text)
+        # If filter inactive OR paste is empty/whitespace-only, bubble to
+        # parent so other handlers can react instead of silently consuming.
+        if not self._results_filter_visible or not flat:
+            parent = getattr(super(), "on_paste", None)
+            if callable(parent):
+                parent(event)
+            return
+
+        self._results_filter_text += flat
+        self._schedule_filter_update()
+        event.prevent_default()
+        event.stop()
+
+    def _schedule_filter_update(self: ResultsFilterMixinHost) -> None:
+        """Schedule a debounced filter update based on row count."""
+        # Cancel any pending timer
+        if self._results_filter_debounce_timer:
+            self._results_filter_debounce_timer.stop()
+            self._results_filter_debounce_timer = None
+
+        # Update filter input immediately to show what user typed
+        total = len(self._results_filter_original_rows)
+        self.results_filter_input.set_filter(
+            self._results_filter_text,
+            len(self._results_filter_matches) if self._results_filter_matches else 0,
+            total,
+        )
+
+        # Get debounce delay based on row count
+        debounce_ms = self._get_debounce_ms(total)
+
+        if debounce_ms == 0:
+            # No debounce needed, update immediately
+            self._update_results_filter()
+        else:
+            # Schedule debounced update
+            self._results_filter_pending_update = True
+            self._results_filter_debounce_timer = self.set_timer(
+                debounce_ms / 1000.0,
+                self._do_debounced_filter_update,
+            )
+
+    def _do_debounced_filter_update(self: ResultsFilterMixinHost) -> None:
+        """Execute the debounced filter update."""
+        self._results_filter_debounce_timer = None
+        if self._results_filter_pending_update:
+            self._results_filter_pending_update = False
+            self._update_results_filter()
+
+    def _update_results_filter(self: ResultsFilterMixinHost) -> None:
+        """Update the results table based on current filter text.
+
+        Uses simple case-insensitive substring matching by default.
+        Prefix with ~ for fuzzy matching.
+        """
+        total = len(self._results_filter_original_rows)
+        if (
+            len(self._results_filter_row_texts) != total
+            or len(self._results_filter_row_texts_lower) != total
+        ):
+            self._prime_results_filter_cache(self._results_filter_original_rows)
+
+        if not self._results_filter_text:
+            # Restore all rows
+            self._restore_results_table()
+            self._results_filter_matches = []
+            self._results_filter_matching_rows = list(self._results_filter_original_rows)
+            self._results_filter_fuzzy = False
+            self.results_filter_input.set_filter("", 0, total)
+            return
+
+        # Check for fuzzy mode prefix
+        search_text = self._results_filter_text
+        if search_text.startswith("~"):
+            self._results_filter_fuzzy = True
+            search_text = search_text[1:]  # Remove prefix
+            if not search_text:
+                # Just "~" entered, show all rows
+                self._restore_results_table()
+                self._results_filter_matches = []
+                self._results_filter_matching_rows = list(self._results_filter_original_rows)
+                self.results_filter_input.set_filter("~", 0, total)
+                return
+        else:
+            self._results_filter_fuzzy = False
+
+        # Find matching rows (with early exit for performance)
+        matches: list[int] = []
+        matching_rows: list[tuple] = []
+        search_lower = search_text.lower()
+        hit_limit = False
+
+        for row_idx, row in enumerate(self._results_filter_original_rows):
+            if row_idx < len(self._results_filter_row_texts):
+                row_text = self._results_filter_row_texts[row_idx]
+            else:
+                row_text = self._build_row_text(row)
+
+            if self._results_filter_fuzzy:
+                matched, _ = fuzzy_match(search_text, row_text)
+            else:
+                # Fast case-insensitive substring match
+                if row_idx < len(self._results_filter_row_texts_lower):
+                    row_text_lower = self._results_filter_row_texts_lower[row_idx]
+                else:
+                    row_text_lower = row_text.lower()
+                matched = search_lower in row_text_lower
+
+            if matched:
+                matches.append(row_idx)
+                matching_rows.append(row)
+
+                # Early exit if we've found enough matches
+                if len(matches) >= self.MAX_FILTER_MATCHES:
+                    hit_limit = True
+                    break
+
+        self._results_filter_matches = matches
+        self._results_filter_match_index = 0
+        self._results_filter_matching_rows = matching_rows
+
+        # Rebuild table with only matching rows
+        self._rebuild_results_with_matches(matching_rows, search_text)
+
+        # Update filter display (show "5000+" if we hit the limit)
+        match_count = len(matches)
+        if hit_limit:
+            # Signal that there are more matches
+            self.results_filter_input.set_filter(
+                self._results_filter_text, match_count, total, truncated=True
+            )
+        else:
+            self.results_filter_input.set_filter(
+                self._results_filter_text, match_count, total
+            )
+
+        # Jump to first match
+        if matches:
+            self._jump_to_current_results_match()
+
+    def _rebuild_results_with_matches(self: ResultsFilterMixinHost, matching_rows: list[tuple], search_text: str) -> None:
+        """Rebuild the results table with only matching rows."""
+        # Build highlighted rows
+        highlighted_rows: list[tuple] = []
+        search_lower = search_text.lower()
+
+        for row in matching_rows:
+            highlighted_row = []
+            for cell in row:
+                cell_str = str(cell) if cell is not None else "NULL"
+                if search_text:
+                    if self._results_filter_fuzzy:
+                        # Fuzzy highlighting
+                        matched, indices = fuzzy_match(search_text, cell_str)
+                        if matched:
+                            cell_str = highlight_matches(
+                                escape_markup(cell_str), indices, style="bold #FFFF00"
+                            )
+                        else:
+                            cell_str = escape_markup(cell_str)
+                    else:
+                        # Simple substring highlighting
+                        cell_str = self._highlight_substring(cell_str, search_lower)
+                else:
+                    cell_str = escape_markup(cell_str)
+                highlighted_row.append(cell_str)
+            highlighted_rows.append(tuple(highlighted_row))
+
+        # Update the table with filtered results (markup already applied)
+        columns = (
+            self._results_filter_original_columns
+            if self._results_filter_stacked
+            else self._last_result_columns
+        )
+        self._replace_results_table_raw_for_filter(columns, highlighted_rows)
+
+    @staticmethod
+    def _build_row_text(row: tuple) -> str:
+        return " ".join(str(cell) if cell is not None else "" for cell in row)
+
+    def _prime_results_filter_cache(self: ResultsFilterMixinHost, rows: list[tuple]) -> None:
+        """Precompute row text caches for faster filtering."""
+        row_texts: list[str] = []
+        row_texts_lower: list[str] = []
+        for row in rows:
+            row_text = self._build_row_text(row)
+            row_texts.append(row_text)
+            row_texts_lower.append(row_text.lower())
+        self._results_filter_row_texts = row_texts
+        self._results_filter_row_texts_lower = row_texts_lower
+
+    def _highlight_substring(self: ResultsFilterMixinHost, text: str, search_lower: str) -> str:
+        """Highlight substring matches in text (case-insensitive)."""
+        text_lower = text.lower()
+        start = text_lower.find(search_lower)
+        if start == -1:
+            return escape_markup(text)
+
+        # Find all non-overlapping matches and highlight them
+        result_parts = []
+        pos = 0
+        while start != -1:
+            # Add text before match
+            if start > pos:
+                result_parts.append(escape_markup(text[pos:start]))
+            # Add highlighted match
+            end = start + len(search_lower)
+            result_parts.append(f"[bold #FFFF00]{escape_markup(text[start:end])}[/]")
+            pos = end
+            start = text_lower.find(search_lower, pos)
+
+        # Add remaining text
+        if pos < len(text):
+            result_parts.append(escape_markup(text[pos:]))
+
+        return "".join(result_parts)
+
+    def _restore_results_table(self: ResultsFilterMixinHost) -> None:
+        """Restore the results table to show all original rows."""
+        if not self._results_filter_original_rows:
+            return
+
+        columns = (
+            self._results_filter_original_columns
+            if self._results_filter_stacked
+            else self._last_result_columns
+        )
+
+        # Use _replace_results_table which handles escaping
+        self._replace_results_table_for_filter(columns, self._results_filter_original_rows)
+
+        if self._results_filter_stacked and self._results_filter_target_section is not None:
+            self._results_filter_target_section.result_rows = list(self._results_filter_original_rows)
+        else:
+            # Update stored rows to match original
+            self._last_result_rows = list(self._results_filter_original_rows)
+
+    def _replace_results_table_raw_for_filter(
+        self: ResultsFilterMixinHost, columns: list[str], rows: list[tuple]
+    ) -> None:
+        if self._results_filter_stacked:
+            self._replace_results_section_table(columns, rows, escape=False)
+        else:
+            self._replace_results_table_raw(columns, rows)
+
+    def _replace_results_table_for_filter(
+        self: ResultsFilterMixinHost, columns: list[str], rows: list[tuple]
+    ) -> None:
+        if self._results_filter_stacked:
+            self._replace_results_section_table(columns, rows, escape=True)
+        else:
+            self._replace_results_table(columns, rows)
+
+    def _get_active_stacked_results_target(
+        self: ResultsFilterMixinHost,
+    ) -> tuple[Any | None, MiuDataTable | None]:
+        from miu_db.shared.ui.widgets_stacked_results import ResultSection, StackedResultsContainer
+
+        try:
+            container = self.query_one("#stacked-results", StackedResultsContainer)
+        except Exception:
+            return None, None
+
+        if not container.has_class("active"):
+            return None, None
+
+        focused_table = next(
+            (table for table in container.query(MiuDataTable) if table.has_focus),
+            None,
+        )
+        if focused_table is not None:
+            active_section = self._find_results_section(focused_table)
+            return active_section, focused_table
+
+        sections = list(container.query(ResultSection))
+        if not sections:
+            return None, None
+
+        active_section = next((s for s in sections if not s.collapsed), sections[0])
+        if active_section.collapsed:
+            active_section.collapsed = False
+            active_section.scroll_visible()
+
+        try:
+            table = active_section.query_one(MiuDataTable)
+        except Exception:
+            table = None
+
+        return active_section, table
+
+    def _find_results_section(self: ResultsFilterMixinHost, widget: Any) -> Any | None:
+        """Find the ResultSection ancestor for a widget."""
+        from miu_db.shared.ui.widgets_stacked_results import ResultSection
+
+        current = widget
+        while current is not None:
+            if isinstance(current, ResultSection):
+                return current
+            current = getattr(current, "parent", None)
+        return None
+
+    def _replace_results_section_table(
+        self: ResultsFilterMixinHost, columns: list[str], rows: list[tuple], *, escape: bool
+    ) -> None:
+        section = self._results_filter_target_section
+        table = self._results_filter_target_table
+        if section is None or table is None:
+            return
+
+        new_table = self._build_results_section_table(columns, rows, escape=escape)
+        section.mount(new_table, after=table)
+        table.remove()
+        self._results_filter_target_table = new_table
+
+    def _build_results_section_table(
+        self: ResultsFilterMixinHost, columns: list[str], rows: list[tuple], *, escape: bool
+    ) -> MiuDataTable:
+        if not columns:
+            columns = ["(empty)"]
+            rows = []
+
+        if escape:
+            rows = [
+                tuple(escape_markup(str(val)) if val is not None else "NULL" for val in row)
+                for row in rows
+            ]
+
+        table_height = min(1 + len(rows), 15)
+
+        table = MiuDataTable(
+            zebra_stripes=True,
+            data=rows,
+            column_labels=columns,
+            render_markup=not escape,
+            null_rep="NULL",
+        )
+        table.styles.height = table_height
+        return table

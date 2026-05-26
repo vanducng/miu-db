@@ -1,0 +1,29 @@
+# Custom sshd_config for testing - allows high connection rate
+Port 2222
+AddressFamily any
+ListenAddress 0.0.0.0
+ListenAddress ::
+
+# Host keys (linuxserver image puts them in /config)
+HostKey /config/ssh_host_keys/ssh_host_rsa_key
+HostKey /config/ssh_host_keys/ssh_host_ecdsa_key
+HostKey /config/ssh_host_keys/ssh_host_ed25519_key
+
+# Authentication
+PermitRootLogin no
+PasswordAuthentication yes
+PubkeyAuthentication yes
+AuthorizedKeysFile .ssh/authorized_keys
+
+# TCP forwarding for SSH tunnels
+AllowTcpForwarding yes
+GatewayPorts no
+X11Forwarding no
+
+# Subsystems
+Subsystem sftp /usr/lib/openssh/sftp-server
+
+# Increase connection limits for testing (no rate limiting)
+MaxStartups 100:30:200
+MaxSessions 100
+LoginGraceTime 120

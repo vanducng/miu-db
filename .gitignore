@@ -1,0 +1,77 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Distribution / packaging
+build/
+dist/
+*.egg-info/
+*.egg
+
+# Virtual environments
+venv/
+.venv/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+.claude/
+
+# Local caches
+.cache/
+.benchmarks/
+.mypy_cache/
+.pytest_cache/
+.ruff_cache/
+.miu-db/
+.miu-db-config/
+
+# OS
+.DS_Store
+
+# Demo files
+*.tape
+.tmp/
+docs/demos/drafts/
+infra/docker/docker-compose.yml
+infra/sql/init.sql
+
+# Database files
+*.db
+
+# AUR build artifacts
+aur/*.tar.gz
+aur/src/
+aur/pkg/
+aur/*.pkg.tar.*
+miu-db-notifications/
+
+# Integration test artifacts
+tests/integration/python_packages/artifacts/
+
+miu_db/_version.py
+
+# Local assets (except logo for README)
+assets/*
+!assets/favorites/
+assets/favorites/*
+!assets/favorites/logo.png
+!assets/logo.png
+.worktrees/
+.obsidian/
+
+# Test environment files with secrets
+tests/.env
+
+# Test artifacts
+tests/integration/drivers/artifacts/
+tests/integration/drivers/
+__pycache__/
+
+plans/
+
+docs/journals
+.coverage

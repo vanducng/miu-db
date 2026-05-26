@@ -1,0 +1,43 @@
+"""Resolve active keybinding contexts from the input context."""
+
+from __future__ import annotations
+
+from miu_db.core.input_context import InputContext
+from miu_db.core.vim import VimMode
+
+
+def get_binding_contexts(ctx: InputContext) -> set[str]:
+    """Determine which keybinding contexts should be active."""
+    contexts = {"global", "navigation"}
+
+    if ctx.focus == "explorer":
+        contexts.add("tree")
+    if ctx.tree_visual_mode_active:
+        contexts.add("tree_visual")
+    if ctx.tree_filter_active:
+        contexts.add("tree_filter")
+
+    if ctx.focus == "query":
+        contexts.add("query")
+        if ctx.vim_mode == VimMode.INSERT:
+            contexts.add("query_insert")
+        elif ctx.vim_mode == VimMode.VISUAL:
+            contexts.add("query_visual")
+        elif ctx.vim_mode == VimMode.VISUAL_LINE:
+            contexts.add("query_visual_line")
+        else:
+            contexts.add("query_normal")
+    if ctx.autocomplete_visible:
+        contexts.add("autocomplete")
+
+    if ctx.focus == "results":
+        contexts.add("results")
+    if ctx.results_filter_active:
+        contexts.add("results_filter")
+    if ctx.value_view_active:
+        contexts.add("value_view")
+
+    if getattr(ctx, "resize_mode_active", False):
+        contexts.add("resize_mode")
+
+    return contexts

@@ -1,0 +1,56 @@
+"""Explorer tree state for index/trigger/sequence nodes."""
+
+from __future__ import annotations
+
+from miu_db.core.input_context import InputContext
+from miu_db.core.state_base import DisplayBinding, State, resolve_display_key
+
+
+class TreeOnObjectState(State):
+    """Tree focused on index, trigger, or sequence node."""
+
+    help_category = "Explorer"
+
+    def _setup_actions(self) -> None:
+        self.allows("select_table", label="Show Info", help="Show object definition/info")
+
+    def get_display_bindings(self, app: InputContext) -> tuple[list[DisplayBinding], list[DisplayBinding]]:
+        left: list[DisplayBinding] = []
+        seen: set[str] = set()
+
+        left.append(
+            DisplayBinding(
+                key=resolve_display_key("select_table") or "s",
+                label="Show Info",
+                action="select_table",
+            )
+        )
+        seen.add("select_table")
+        left.append(
+            DisplayBinding(
+                key=resolve_display_key("refresh_tree") or "f",
+                label="Refresh",
+                action="refresh_tree",
+            )
+        )
+        seen.add("refresh_tree")
+        left.append(
+            DisplayBinding(
+                key=resolve_display_key("ty_leader_key") or "y",
+                label="Copy",
+                action="ty_leader_key",
+            )
+        )
+        seen.add("ty_leader_key")
+
+        if self.parent:
+            parent_left, _ = self.parent.get_display_bindings(app)
+            for binding in parent_left:
+                if binding.action not in seen:
+                    left.append(binding)
+                    seen.add(binding.action)
+
+        return left, []
+
+    def is_active(self, app: InputContext) -> bool:
+        return app.focus == "explorer" and app.tree_node_kind in ("index", "trigger", "sequence")

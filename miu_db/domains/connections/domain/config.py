@@ -1,0 +1,632 @@
+"""Connection domain models and enums."""
+
+from __future__ import annotations
+
+from collections.abc import Mapping
+from dataclasses import dataclass, field
+from enum import Enum
+from typing import Any
+from urllib.parse import urlparse, urlunparse
+
+
+def _scrub_url_password(url: str | None) -> str | None:
+    """Strip the password from a URL's userinfo while keeping username + host.
+
+    Returns the URL unchanged when there is no password component or when
+    parsing fails (defensive — never re-raise, never leak the secret).
+    """
+    if not url:
+        return url
+    try:
+        parsed = urlparse(url)
+    except ValueError:
+        return None  # malformed URL; safer to drop than to leak
+    if not parsed.password:
+        return url
+    host = parsed.hostname or ""
+    if parsed.port is not None:
+        host = f"{host}:{parsed.port}"
+    netloc = f"{parsed.username}@{host}" if parsed.username else host
+    return urlunparse(parsed._replace(netloc=netloc))
+
+
+class DatabaseType(str, Enum):
+    ATHENA = "athena"
+    BIGQUERY = "bigquery"
+    CLICKHOUSE = "clickhouse"
+    COCKROACHDB = "cockroachdb"
+    D1 = "d1"
+    DUCKDB = "duckdb"
+    DB2 = "db2"
+    FIREBIRD = "firebird"
+    FLIGHT = "flight"
+    HANA = "hana"
+    IMPALA = "impala"
+    MARIADB = "mariadb"
+    MOTHERDUCK = "motherduck"
+    MSSQL = "mssql"
+    MYSQL = "mysql"
+    ORACLE = "oracle"
+    ORACLE_LEGACY = "oracle_legacy"
+    OSQUERY = "osquery"
+    POSTGRESQL = "postgresql"
+    PRESTO = "presto"
+    REDSHIFT = "redshift"
+    SNOWFLAKE = "snowflake"
+    SPANNER = "spanner"
+    SQLITE = "sqlite"
+    SUPABASE = "supabase"
+    SURREALDB = "surrealdb"
+    TERADATA = "teradata"
+    TRINO = "trino"
+    TURSO = "turso"
+
+
+# Display order: sqlite first, then by popularity
+DATABASE_TYPE_DISPLAY_ORDER: list[DatabaseType] = [
+    DatabaseType.SQLITE,
+    DatabaseType.POSTGRESQL,
+    DatabaseType.MYSQL,
+    DatabaseType.MSSQL,
+    DatabaseType.MARIADB,
+    DatabaseType.ORACLE,
+    DatabaseType.ORACLE_LEGACY,
+    DatabaseType.DB2,
+    DatabaseType.HANA,
+    DatabaseType.TERADATA,
+    DatabaseType.SNOWFLAKE,
+    DatabaseType.BIGQUERY,
+    DatabaseType.SPANNER,
+    DatabaseType.TRINO,
+    DatabaseType.PRESTO,
+    DatabaseType.IMPALA,
+    DatabaseType.DUCKDB,
+    DatabaseType.MOTHERDUCK,
+    DatabaseType.REDSHIFT,
+    DatabaseType.CLICKHOUSE,
+    DatabaseType.COCKROACHDB,
+    DatabaseType.SUPABASE,
+    DatabaseType.TURSO,
+    DatabaseType.D1,
+    DatabaseType.ATHENA,
+    DatabaseType.FIREBIRD,
+    DatabaseType.FLIGHT,
+    DatabaseType.OSQUERY,
+    DatabaseType.SURREALDB,
+]
+
+
+def get_database_type_labels() -> dict[DatabaseType, str]:
+    from miu_db.domains.connections.providers.metadata import get_display_name
+
+    return {db_type: get_display_name(db_type.value) for db_type in DatabaseType}
+
+
+class AuthType(Enum):
+    WINDOWS = "windows"
+    SQL_SERVER = "sql"
+    AD_PASSWORD = "ad_password"
+    AD_INTERACTIVE = "ad_interactive"
+    AD_INTEGRATED = "ad_integrated"
+    AD_DEFAULT = "ad_default"
+
+
+AUTH_TYPE_LABELS = {
+    AuthType.WINDOWS: "Windows Authentication",
+    AuthType.SQL_SERVER: "SQL Server Authentication",
+    AuthType.AD_PASSWORD: "Microsoft Entra Password",
+    AuthType.AD_INTERACTIVE: "Microsoft Entra MFA",
+    AuthType.AD_INTEGRATED: "Microsoft Entra Integrated",
+    AuthType.AD_DEFAULT: "Microsoft Entra Default (CLI)",
+}
+
+
+@dataclass
+class TcpEndpoint:
+    host: str = ""
+    port: str = ""
+    database: str = ""
+    username: str = ""
+    password: str | None = None
+    password_command: str | None = None
+    kind: str = "tcp"
+
+
+@dataclass
+class FileEndpoint:
+    path: str = ""
+    kind: str = "file"
+
+
+@dataclass
+class TunnelConfig:
+    enabled: bool = False
+    source: str = "manual"  # "manual" | "config"
+    config_alias: str = ""
+    host: str = ""
+    port: str = "22"
+    username: str = ""
+    auth_type: str = "key"  # key|password
+    password: str | None = None
+    password_command: str | None = None
+    key_path: str = ""
+
+
+@dataclass
+class ConnectionConfig:
+    """Database connection configuration."""
+
+    name: str
+    db_type: str = "mssql"
+    endpoint: TcpEndpoint | FileEndpoint = field(default_factory=TcpEndpoint)
+    tunnel: TunnelConfig | None = None
+    source: str | None = None
+    connection_url: str | None = None
+    folder_path: str = ""
+    extra_options: dict[str, str] = field(default_factory=dict)
+    options: dict[str, Any] = field(default_factory=dict)
+
+    @classmethod
+    def from_dict(cls, data: Mapping[str, Any]) -> ConnectionConfig:
+        payload = dict(data)
+
+        db_type = payload.get("db_type")
+        if not isinstance(db_type, str) or not db_type:
+            payload["db_type"] = "mssql"
+
+        raw_options = payload.pop("options", None)
+        options: dict[str, Any] = {}
+        if isinstance(raw_options, dict):
+            options.update(raw_options)
+
+        # Capture legacy top-level auth fields into options.
+        for key in ("auth_type", "trusted_connection"):
+            if key in payload and key not in options:
+                options[key] = payload.pop(key)
+
+        endpoint_data = payload.pop("endpoint", None)
+        endpoint: TcpEndpoint | FileEndpoint | None = None
+        if isinstance(endpoint_data, dict):
+            endpoint_kind = str(endpoint_data.get("kind", "tcp"))
+            if endpoint_kind == "file":
+                endpoint = FileEndpoint(path=str(endpoint_data.get("path", "")))
+            else:
+                endpoint = TcpEndpoint(
+                    host=str(endpoint_data.get("host", "")),
+                    port=str(endpoint_data.get("port", "")),
+                    database=str(endpoint_data.get("database", "")),
+                    username=str(endpoint_data.get("username", "")),
+                    password=endpoint_data.get("password", None),
+                    password_command=endpoint_data.get("password_command", None),
+                )
+        else:
+            file_path = payload.pop("file_path", None)
+            if file_path is None:
+                file_path = options.pop("file_path", None)
+            if file_path:
+                endpoint = FileEndpoint(path=str(file_path))
+            else:
+                endpoint = TcpEndpoint(
+                    host=str(payload.pop("server", payload.pop("host", ""))),
+                    port=str(payload.pop("port", "")),
+                    database=str(payload.pop("database", "")),
+                    username=str(payload.pop("username", "")),
+                    password=payload.pop("password", None),
+                    password_command=payload.pop("password_command", None),
+                )
+
+        tunnel = None
+        tunnel_data = payload.pop("tunnel", None)
+        if isinstance(tunnel_data, dict):
+            enabled = bool(tunnel_data.get("enabled", False))
+            if enabled:
+                source = str(tunnel_data.get("source", "manual"))
+                if source not in {"manual", "config"}:
+                    source = "manual"
+                if source == "config":
+                    tunnel = TunnelConfig(
+                        enabled=True,
+                        source="config",
+                        config_alias=str(tunnel_data.get("config_alias", "")),
+                    )
+                else:
+                    tunnel = TunnelConfig(
+                        enabled=True,
+                        source="manual",
+                        host=str(tunnel_data.get("host", "")),
+                        port=str(tunnel_data.get("port", "22")),
+                        username=str(tunnel_data.get("username", "")),
+                        auth_type=str(tunnel_data.get("auth_type", "key")),
+                        password=tunnel_data.get("password", None),
+                        password_command=tunnel_data.get("password_command", None),
+                        key_path=str(tunnel_data.get("key_path", "")),
+                    )
+        else:
+            ssh_enabled = payload.pop("ssh_enabled", None)
+            ssh_host = str(payload.pop("ssh_host", ""))
+            ssh_port = str(payload.pop("ssh_port", "22"))
+            ssh_username = str(payload.pop("ssh_username", ""))
+            ssh_auth_type = str(payload.pop("ssh_auth_type", "key"))
+            ssh_password = payload.pop("ssh_password", None)
+            ssh_password_command = payload.pop("ssh_password_command", None)
+            ssh_key_path = str(payload.pop("ssh_key_path", ""))
+
+            enabled_flag = str(ssh_enabled).lower() if ssh_enabled is not None else ""
+            if ssh_host or enabled_flag in {"enabled", "true", "1", "yes"}:
+                tunnel = TunnelConfig(
+                    enabled=True,
+                    host=ssh_host,
+                    port=ssh_port or "22",
+                    username=ssh_username,
+                    auth_type=ssh_auth_type or "key",
+                    password=ssh_password,
+                    password_command=ssh_password_command,
+                    key_path=ssh_key_path,
+                )
+
+        base_fields = {
+            "name",
+            "db_type",
+            "source",
+            "connection_url",
+            "folder_path",
+            "extra_options",
+        }
+        for key in list(payload.keys()):
+            if key in base_fields:
+                continue
+            if key not in options:
+                options[key] = payload.pop(key)
+            else:
+                payload.pop(key)
+
+        folder_path = normalize_folder_path(payload.get("folder_path", ""))
+
+        return cls(
+            name=str(payload.get("name", "")),
+            db_type=str(payload.get("db_type", "mssql")),
+            endpoint=endpoint,
+            tunnel=tunnel,
+            source=payload.get("source"),
+            connection_url=payload.get("connection_url"),
+            folder_path=folder_path,
+            extra_options=dict(payload.get("extra_options") or {}),
+            options=options,
+        )
+
+    def get_option(self, name: str, default: Any | None = None) -> Any:
+        return self.options.get(name, default)
+
+    def set_option(self, name: str, value: Any) -> None:
+        self.options[name] = value
+
+    def get_field_value(self, name: str, default: Any = "") -> Any:
+        values = self.to_form_values()
+        return values.get(name, default)
+
+    def get_db_type(self) -> DatabaseType:
+        try:
+            return DatabaseType(self.db_type)
+        except ValueError:
+            return next(iter(DatabaseType))
+
+    def to_form_values(self) -> dict[str, Any]:
+        values: dict[str, Any] = {
+            "name": self.name,
+            "db_type": self.db_type,
+            "source": self.source,
+            "connection_url": self.connection_url,
+            "extra_options": self.extra_options,
+        }
+
+        if isinstance(self.endpoint, FileEndpoint):
+            values["file_path"] = self.endpoint.path
+        else:
+            values.update(
+                {
+                    "server": self.endpoint.host,
+                    "port": self.endpoint.port,
+                    "database": self.endpoint.database,
+                    "username": self.endpoint.username,
+                    "password": self.endpoint.password,
+                    "password_command": self.endpoint.password_command,
+                }
+            )
+
+        if self.tunnel and self.tunnel.enabled:
+            if self.tunnel.source == "config":
+                values.update(
+                    {
+                        "ssh_enabled": "enabled",
+                        "ssh_source": "config",
+                        "ssh_config_alias": self.tunnel.config_alias,
+                    }
+                )
+            else:
+                values.update(
+                    {
+                        "ssh_enabled": "enabled",
+                        "ssh_source": "manual",
+                        "ssh_host": self.tunnel.host,
+                        "ssh_port": self.tunnel.port,
+                        "ssh_username": self.tunnel.username,
+                        "ssh_auth_type": self.tunnel.auth_type,
+                        "ssh_password": self.tunnel.password,
+                        "ssh_password_command": self.tunnel.password_command,
+                        "ssh_key_path": self.tunnel.key_path,
+                    }
+                )
+        else:
+            values["ssh_enabled"] = "disabled"
+
+        values.update(self.options)
+        return values
+
+    def to_dict(self, *, include_passwords: bool = True) -> dict[str, Any]:
+        connection_url = (
+            self.connection_url if include_passwords else _scrub_url_password(self.connection_url)
+        )
+        data: dict[str, Any] = {
+            "name": self.name,
+            "db_type": self.db_type,
+            "source": self.source,
+            "connection_url": connection_url,
+            "folder_path": self.folder_path,
+            "extra_options": dict(self.extra_options),
+            "options": dict(self.options),
+        }
+
+        if isinstance(self.endpoint, FileEndpoint):
+            data["endpoint"] = {
+                "kind": "file",
+                "path": self.endpoint.path,
+            }
+        else:
+            endpoint_dict: dict[str, Any] = {
+                "kind": "tcp",
+                "host": self.endpoint.host,
+                "port": self.endpoint.port,
+                "database": self.endpoint.database,
+                "username": self.endpoint.username,
+                "password": self.endpoint.password if include_passwords else None,
+            }
+            if self.endpoint.password_command:
+                endpoint_dict["password_command"] = self.endpoint.password_command
+            data["endpoint"] = endpoint_dict
+
+        if self.tunnel and self.tunnel.enabled:
+            if self.tunnel.source == "config":
+                data["tunnel"] = {
+                    "enabled": True,
+                    "source": "config",
+                    "config_alias": self.tunnel.config_alias,
+                }
+            else:
+                tunnel_dict: dict[str, Any] = {
+                    "enabled": True,
+                    "source": "manual",
+                    "host": self.tunnel.host,
+                    "port": self.tunnel.port,
+                    "username": self.tunnel.username,
+                    "auth_type": self.tunnel.auth_type,
+                    "password": self.tunnel.password if include_passwords else None,
+                    "key_path": self.tunnel.key_path,
+                }
+                if self.tunnel.password_command:
+                    tunnel_dict["password_command"] = self.tunnel.password_command
+                data["tunnel"] = tunnel_dict
+        else:
+            data["tunnel"] = {"enabled": False}
+
+        return data
+
+    def with_endpoint(self, **kwargs: Any) -> ConnectionConfig:
+        from dataclasses import replace
+
+        if not isinstance(self.endpoint, TcpEndpoint):
+            return self
+        endpoint = replace(self.endpoint, **kwargs)
+        return replace(self, endpoint=endpoint)
+
+    def with_tunnel(self, **kwargs: Any) -> ConnectionConfig:
+        from dataclasses import replace
+
+        if self.tunnel is None:
+            return self
+        tunnel = replace(self.tunnel, **kwargs)
+        return replace(self, tunnel=tunnel)
+
+    def get_source_emoji(self) -> str:
+        return get_source_emoji(self.source)
+
+    @property
+    def tcp_endpoint(self) -> TcpEndpoint | None:
+        if isinstance(self.endpoint, TcpEndpoint):
+            return self.endpoint
+        return None
+
+    @property
+    def file_endpoint(self) -> FileEndpoint | None:
+        if isinstance(self.endpoint, FileEndpoint):
+            return self.endpoint
+        return None
+
+    @property
+    def server(self) -> str:
+        endpoint = self.tcp_endpoint
+        return endpoint.host if endpoint else ""
+
+    @server.setter
+    def server(self, value: str) -> None:
+        endpoint = self.tcp_endpoint
+        if endpoint:
+            endpoint.host = value
+        else:
+            self.endpoint = TcpEndpoint(host=value)
+
+    @property
+    def port(self) -> str:
+        endpoint = self.tcp_endpoint
+        return endpoint.port if endpoint else ""
+
+    @port.setter
+    def port(self, value: str) -> None:
+        endpoint = self.tcp_endpoint
+        if endpoint:
+            endpoint.port = value
+        else:
+            self.endpoint = TcpEndpoint(port=value)
+
+    @property
+    def database(self) -> str:
+        endpoint = self.tcp_endpoint
+        return endpoint.database if endpoint else ""
+
+    @database.setter
+    def database(self, value: str) -> None:
+        endpoint = self.tcp_endpoint
+        if endpoint:
+            endpoint.database = value
+        else:
+            self.endpoint = TcpEndpoint(database=value)
+
+    @property
+    def username(self) -> str:
+        endpoint = self.tcp_endpoint
+        return endpoint.username if endpoint else ""
+
+    @username.setter
+    def username(self, value: str) -> None:
+        endpoint = self.tcp_endpoint
+        if endpoint:
+            endpoint.username = value
+        else:
+            self.endpoint = TcpEndpoint(username=value)
+
+    @property
+    def password(self) -> str | None:
+        endpoint = self.tcp_endpoint
+        return endpoint.password if endpoint else None
+
+    @password.setter
+    def password(self, value: str | None) -> None:
+        endpoint = self.tcp_endpoint
+        if endpoint:
+            endpoint.password = value
+        else:
+            self.endpoint = TcpEndpoint(password=value)
+
+    @property
+    def file_path(self) -> str:
+        endpoint = self.file_endpoint
+        return endpoint.path if endpoint else ""
+
+    @file_path.setter
+    def file_path(self, value: str) -> None:
+        endpoint = self.file_endpoint
+        if endpoint:
+            endpoint.path = value
+        else:
+            self.endpoint = FileEndpoint(path=value)
+
+    @property
+    def ssh_enabled(self) -> bool:
+        return bool(self.tunnel and self.tunnel.enabled)
+
+    @ssh_enabled.setter
+    def ssh_enabled(self, value: bool) -> None:
+        if value:
+            if self.tunnel is None:
+                self.tunnel = TunnelConfig(enabled=True)
+            else:
+                self.tunnel.enabled = True
+        elif self.tunnel:
+            self.tunnel.enabled = False
+
+    @property
+    def ssh_host(self) -> str:
+        return self.tunnel.host if self.tunnel else ""
+
+    @ssh_host.setter
+    def ssh_host(self, value: str) -> None:
+        if self.tunnel is None:
+            self.tunnel = TunnelConfig(enabled=True, host=value)
+        else:
+            self.tunnel.host = value
+
+    @property
+    def ssh_port(self) -> str:
+        return self.tunnel.port if self.tunnel else "22"
+
+    @ssh_port.setter
+    def ssh_port(self, value: str) -> None:
+        if self.tunnel is None:
+            self.tunnel = TunnelConfig(enabled=True, port=value)
+        else:
+            self.tunnel.port = value
+
+    @property
+    def ssh_username(self) -> str:
+        return self.tunnel.username if self.tunnel else ""
+
+    @ssh_username.setter
+    def ssh_username(self, value: str) -> None:
+        if self.tunnel is None:
+            self.tunnel = TunnelConfig(enabled=True, username=value)
+        else:
+            self.tunnel.username = value
+
+    @property
+    def ssh_auth_type(self) -> str:
+        return self.tunnel.auth_type if self.tunnel else "key"
+
+    @ssh_auth_type.setter
+    def ssh_auth_type(self, value: str) -> None:
+        if self.tunnel is None:
+            self.tunnel = TunnelConfig(enabled=True, auth_type=value)
+        else:
+            self.tunnel.auth_type = value
+
+    @property
+    def ssh_password(self) -> str | None:
+        return self.tunnel.password if self.tunnel else None
+
+    @ssh_password.setter
+    def ssh_password(self, value: str | None) -> None:
+        if self.tunnel is None:
+            self.tunnel = TunnelConfig(enabled=True, password=value)
+        else:
+            self.tunnel.password = value
+
+    @property
+    def ssh_key_path(self) -> str:
+        return self.tunnel.key_path if self.tunnel else ""
+
+    @ssh_key_path.setter
+    def ssh_key_path(self, value: str) -> None:
+        if self.tunnel is None:
+            self.tunnel = TunnelConfig(enabled=True, key_path=value)
+        else:
+            self.tunnel.key_path = value
+
+
+SOURCE_EMOJIS: dict[str, str] = {
+    "docker": "",
+    "azure": "",
+}
+
+
+def get_source_emoji(source: str | None) -> str:
+    if source is None:
+        return ""
+    return SOURCE_EMOJIS.get(source, "")
+
+
+def normalize_folder_path(path: str | None) -> str:
+    if not path:
+        return ""
+    if not isinstance(path, str):
+        path = str(path)
+    path = path.replace("\\", "/")
+    parts = [part.strip() for part in path.split("/") if part.strip()]
+    return "/".join(parts)

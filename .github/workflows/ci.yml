@@ -1,0 +1,607 @@
+name: CI
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+    branches: [main, master]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ["3.10", "3.11", "3.12", "3.13"]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install build
+          pip install -e .
+
+      - name: Check package builds
+        run: python -m build
+
+      - name: Verify CLI entry point
+        run: |
+          python -c "from miu_db.cli import main; print('CLI import OK')"
+
+  nix-flake:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Nix
+        uses: cachix/install-nix-action@v26
+
+      - name: Build flake package
+        run: nix build .#miu-db
+
+  test-unit:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ["3.10", "3.12"]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+
+      - name: Install dependencies
+        run: uv sync --group test --no-dev
+
+      - name: Run unit tests
+        run: |
+          uv run pytest tests/ -v --timeout=60 \
+            --ignore=tests/test_sqlite.py \
+            --ignore=tests/test_mssql.py \
+            --ignore=tests/test_postgresql.py \
+            --ignore=tests/test_mysql.py \
+            --ignore=tests/test_oracle.py \
+            --ignore=tests/test_mariadb.py \
+            --ignore=tests/test_duckdb.py \
+            --ignore=tests/test_cockroachdb.py \
+            --ignore=tests/test_turso.py \
+            --ignore=tests/test_firebird.py \
+            --ignore=tests/test_ssh.py \
+            --ignore=tests/test_clickhouse.py
+
+  test-sqlite:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ["3.10", "3.12"]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+
+      - name: Install dependencies
+        run: uv sync --group test --no-dev
+
+      - name: Run SQLite integration tests
+        run: uv run pytest tests/test_sqlite.py -v --timeout=60
+
+  test-mssql:
+    runs-on: ubuntu-latest
+    needs: build
+
+    services:
+      mssql:
+        image: mcr.microsoft.com/mssql/server:2022-latest
+        env:
+          ACCEPT_EULA: Y
+          MSSQL_SA_PASSWORD: TestPassword123!
+          MSSQL_PID: Developer
+        ports:
+          - 1433:1433
+        options: >-
+          --health-cmd "/opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P 'TestPassword123!' -C -Q 'SELECT 1' || exit 1"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 10
+          --health-start-period 30s
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+
+      - name: Install dependencies
+        run: uv sync --group test --no-dev --extra mssql
+
+      - name: Wait for SQL Server to be ready
+        run: |
+          for i in {1..30}; do
+            if /opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P 'TestPassword123!' -C -Q "SELECT 1" &> /dev/null; then
+              echo "SQL Server is ready"
+              break
+            fi
+            echo "Waiting for SQL Server... ($i/30)"
+            sleep 2
+          done
+
+      - name: Run SQL Server integration tests
+        env:
+          MSSQL_HOST: localhost
+          MSSQL_PORT: 1433
+          MSSQL_USER: sa
+          MSSQL_PASSWORD: TestPassword123!
+        run: uv run pytest tests/test_mssql.py -v --timeout=120
+
+  test-postgresql:
+    runs-on: ubuntu-latest
+    needs: build
+
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: testuser
+          POSTGRES_PASSWORD: TestPassword123!
+          POSTGRES_DB: test_miu_db
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U testuser -d test_miu_db"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+          --health-start-period 10s
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+
+      - name: Install dependencies
+        run: uv sync --group test --no-dev --extra postgres
+
+      - name: Run PostgreSQL integration tests
+        env:
+          POSTGRES_HOST: localhost
+          POSTGRES_PORT: 5432
+          POSTGRES_USER: testuser
+          POSTGRES_PASSWORD: TestPassword123!
+          POSTGRES_DATABASE: test_miu_db
+        run: uv run pytest tests/test_postgresql.py -v --timeout=120
+
+  test-mysql:
+    runs-on: ubuntu-latest
+    needs: build
+
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_ROOT_PASSWORD: TestPassword123!
+          MYSQL_USER: testuser
+          MYSQL_PASSWORD: TestPassword123!
+          MYSQL_DATABASE: test_miu_db
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd "mysqladmin ping -h localhost -u testuser -pTestPassword123!"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+          --health-start-period 30s
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+
+      - name: Install dependencies
+        run: uv sync --group test --no-dev --extra mysql
+
+      - name: Run MySQL integration tests
+        env:
+          MYSQL_HOST: localhost
+          MYSQL_PORT: 3306
+          MYSQL_USER: root
+          MYSQL_PASSWORD: TestPassword123!
+          MYSQL_DATABASE: test_miu_db
+        run: uv run pytest tests/test_mysql.py -v --timeout=120
+
+  test-oracle:
+    runs-on: ubuntu-latest
+    needs: build
+
+    services:
+      oracle:
+        image: gvenzl/oracle-free:23-slim
+        env:
+          ORACLE_PASSWORD: TestPassword123!
+          APP_USER: testuser
+          APP_USER_PASSWORD: TestPassword123!
+        ports:
+          - 1521:1521
+        options: >-
+          --health-cmd "healthcheck.sh"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 20
+          --health-start-period 60s
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+
+      - name: Install dependencies
+        run: uv sync --group test --no-dev --extra oracle
+
+      - name: Run Oracle integration tests
+        env:
+          ORACLE_HOST: localhost
+          ORACLE_PORT: 1521
+          ORACLE_USER: testuser
+          ORACLE_PASSWORD: TestPassword123!
+          ORACLE_SERVICE: FREEPDB1
+        run: uv run pytest tests/test_oracle.py -v --timeout=120
+
+  test-mariadb:
+    runs-on: ubuntu-latest
+    needs: build
+
+    services:
+      mariadb:
+        image: mariadb:11
+        env:
+          MARIADB_ROOT_PASSWORD: TestPassword123!
+          MARIADB_USER: testuser
+          MARIADB_PASSWORD: TestPassword123!
+          MARIADB_DATABASE: test_miu_db
+        ports:
+          - 3307:3306
+        options: >-
+          --health-cmd "healthcheck.sh --connect --innodb_initialized"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+          --health-start-period 30s
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install MariaDB Connector/C
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libmariadb-dev
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+
+      - name: Install dependencies
+        run: uv sync --group test --no-dev --extra mariadb
+
+      - name: Run MariaDB integration tests
+        env:
+          MARIADB_HOST: 127.0.0.1
+          MARIADB_PORT: 3307
+          MARIADB_USER: root
+          MARIADB_PASSWORD: TestPassword123!
+          MARIADB_DATABASE: test_miu_db
+        run: uv run pytest tests/test_mariadb.py -v --timeout=120
+
+  test-duckdb:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ["3.10", "3.12"]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+
+      - name: Install dependencies
+        run: uv sync --group test --no-dev --extra duckdb
+
+      - name: Run DuckDB integration tests
+        run: uv run pytest tests/test_duckdb.py -v --timeout=60
+
+  test-cockroachdb:
+    runs-on: ubuntu-latest
+    needs: build
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+
+      - name: Install dependencies
+        run: uv sync --group test --no-dev --extra cockroachdb
+
+      - name: Start CockroachDB
+        run: |
+          docker run -d --name cockroachdb \
+            -p 26257:26257 -p 8080:8080 \
+            cockroachdb/cockroach:latest start-single-node --insecure
+          for i in {1..30}; do
+            if curl -sf http://localhost:8080/health > /dev/null 2>&1; then
+              echo "CockroachDB is ready"
+              break
+            fi
+            echo "Waiting for CockroachDB... ($i/30)"
+            sleep 2
+          done
+
+      - name: Run CockroachDB integration tests
+        env:
+          COCKROACHDB_HOST: localhost
+          COCKROACHDB_PORT: 26257
+          COCKROACHDB_USER: root
+          COCKROACHDB_PASSWORD: ""
+          COCKROACHDB_DATABASE: test_miu_db
+        run: uv run pytest tests/test_cockroachdb.py -v --timeout=120
+
+  test-firebird:
+    runs-on: ubuntu-latest
+    needs: build
+
+    services:
+      firebird:
+        image: firebirdsql/firebird:5.0.3-noble
+        env:
+          FIREBIRD_USER: testuser
+          FIREBIRD_PASSWORD: TestPassword123!
+          FIREBIRD_DATABASE: /var/lib/firebird/data/test_miu_db.fdb
+        ports:
+          - 3050:3050
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+
+      - name: Install dependencies
+        run: uv sync --group test --no-dev --extra firebird
+
+      - name: Run Firebird integration tests
+        env:
+          FIREBIRD_HOST: localhost
+          FIREBIRD_PORT: 3050
+          FIREBIRD_USER: testuser
+          FIREBIRD_PASSWORD: TestPassword123!
+          FIREBIRD_DATABASE: /var/lib/firebird/data/test_miu_db.fdb
+        run: uv run pytest tests/test_firebird.py -v --timeout=120
+
+  test-clickhouse:
+    runs-on: ubuntu-latest
+    needs: build
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+
+      - name: Install dependencies
+        run: uv sync --group test --no-dev --extra clickhouse
+
+      - name: Start ClickHouse
+        run: |
+          docker run -d --name clickhouse \
+            -p 8123:8123 -p 9000:9000 \
+            -e CLICKHOUSE_USER=default \
+            -e CLICKHOUSE_PASSWORD=testpass \
+            clickhouse/clickhouse-server:latest
+          for i in {1..30}; do
+            if curl -sf http://localhost:8123/ping > /dev/null 2>&1; then
+              echo "ClickHouse is ready"
+              break
+            fi
+            echo "Waiting for ClickHouse... ($i/30)"
+            sleep 2
+          done
+
+      - name: Run ClickHouse integration tests
+        env:
+          CLICKHOUSE_HOST: localhost
+          CLICKHOUSE_PORT: 8123
+          CLICKHOUSE_USER: default
+          CLICKHOUSE_PASSWORD: testpass
+          CLICKHOUSE_DATABASE: test_miu_db
+        run: uv run pytest tests/test_clickhouse.py -v --timeout=120
+
+  test-ssh:
+    runs-on: ubuntu-latest
+    needs: build
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+
+      - name: Install dependencies
+        run: uv sync --group test --no-dev --extra ssh --extra postgres
+
+      - name: Create Docker network
+        run: docker network create ssh-test-net
+
+      - name: Start PostgreSQL
+        run: |
+          docker run -d --name postgres --network ssh-test-net \
+            -e POSTGRES_USER=testuser \
+            -e POSTGRES_PASSWORD=TestPassword123! \
+            -e POSTGRES_DB=test_miu_db \
+            -p 5433:5432 \
+            postgres:16-alpine
+          # Wait for PostgreSQL to be ready
+          for i in {1..30}; do
+            if docker exec postgres pg_isready -U testuser -d test_miu_db > /dev/null 2>&1; then
+              echo "PostgreSQL is ready"
+              break
+            fi
+            echo "Waiting for PostgreSQL... ($i/30)"
+            sleep 2
+          done
+
+      - name: Start SSH server
+        run: |
+          docker run -d --name sshserver --network ssh-test-net \
+            -e PUID=1000 \
+            -e PGID=1000 \
+            -e USER_NAME=testuser \
+            -e USER_PASSWORD=testpass \
+            -e PASSWORD_ACCESS=true \
+            -e DOCKER_MODS=linuxserver/mods:openssh-server-ssh-tunnel \
+            -p 2222:2222 \
+            lscr.io/linuxserver/openssh-server:latest
+          # Wait for SSH to be ready
+          for i in {1..30}; do
+            if nc -z localhost 2222 2>/dev/null; then
+              echo "SSH server is ready"
+              break
+            fi
+            echo "Waiting for SSH server... ($i/30)"
+            sleep 2
+          done
+
+      - name: Run SSH tunnel integration tests
+        env:
+          SSH_HOST: localhost
+          SSH_PORT: 2222
+          SSH_USER: testuser
+          SSH_PASSWORD: testpass
+          SSH_REMOTE_DB_HOST: postgres
+          SSH_REMOTE_DB_PORT: 5432
+          SSH_DIRECT_PG_HOST: localhost
+          SSH_DIRECT_PG_PORT: 5433
+          POSTGRES_USER: testuser
+          POSTGRES_PASSWORD: TestPassword123!
+          POSTGRES_DATABASE: test_miu_db
+        run: uv run pytest tests/test_ssh.py -v --timeout=120
+
+      - name: Cleanup
+        if: always()
+        run: |
+          docker stop sshserver postgres || true
+          docker rm sshserver postgres || true
+          docker network rm ssh-test-net || true
+
+  test-turso:
+    runs-on: ubuntu-latest
+    needs: build
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+
+      - name: Install dependencies
+        run: uv sync --group test --no-dev --extra turso
+
+      - name: Start Turso (libsql-server)
+        run: |
+          docker run -d --name turso \
+            -p 8080:8080 \
+            ghcr.io/tursodatabase/libsql-server:latest
+          # Wait for Turso to be ready
+          for i in {1..30}; do
+            if curl -sf http://localhost:8080/health > /dev/null 2>&1; then
+              echo "Turso is ready"
+              break
+            fi
+            echo "Waiting for Turso... ($i/30)"
+            sleep 2
+          done
+
+      - name: Run Turso integration tests
+        env:
+          TURSO_URL: http://localhost:8080
+        run: uv run pytest tests/test_turso.py -v --timeout=120
+
+      - name: Cleanup
+        if: always()
+        run: |
+          docker stop turso || true
+          docker rm turso || true
