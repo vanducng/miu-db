@@ -1,6 +1,6 @@
 # Maintainer: Duc Nguyen <me@vanducng.dev>
 pkgname=miu-db
-pkgver=0.1.0
+pkgver=0.1.1
 pkgrel=1
 pkgdesc="Miumono database TUI for fast terminal SQL."
 arch=('any')
