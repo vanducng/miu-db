@@ -76,6 +76,24 @@ jobs:
           name: dist
           path: dist/
 
+  upload-release-assets:
+    if: ${{ !(github.event_name == 'workflow_dispatch' && github.event.inputs.aur_only == 'true') }}
+    needs: [release, build]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Download dist artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: dist
+          path: dist/
+
+      - name: Upload GitHub Release assets
+        run: gh release upload "${RELEASE_TAG}" dist/* --repo "${GITHUB_REPOSITORY}" --clobber
+        env:
+          GH_TOKEN: ${{ github.token }}
+
   publish:
     if: ${{ !(github.event_name == 'workflow_dispatch' && github.event.inputs.aur_only == 'true') }}
     needs: build
@@ -94,8 +112,8 @@ jobs:
         uses: pypa/gh-action-pypi-publish@release/v1
 
   aur:
-    needs: [build, publish]
-    if: ${{ always() && needs.build.result == 'success' && (needs.publish.result == 'success' || needs.publish.result == 'skipped') }}
+    needs: build
+    if: ${{ always() && needs.build.result == 'success' }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
