@@ -2,6 +2,15 @@
 
 All notable user-facing changes to miu-db.
 
+## 0.1.3 - 2026-05-27
+
+### Changed
+
+- Consolidated release and PyPI publishing into `.github/workflows/publish.yml`
+  so the tag push itself runs the PyPI Trusted Publisher workflow.
+- Removed the separate release workflow to avoid GitHub release-event recursion
+  from `GITHUB_TOKEN`.
+
 ## 0.1.2 - 2026-05-27
 
 ### Changed

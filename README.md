@@ -150,7 +150,7 @@ uv run python -m build
 Release tags use miumono component SemVer:
 
 ```bash
-miu-db-v0.1.2
+miu-db-v0.1.3
 ```
 
 ## License
