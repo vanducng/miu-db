@@ -518,14 +518,14 @@ jobs:
 
       - name: Start PostgreSQL
         run: |
-          docker run -d --name postgres --network ssh-test-net \
+          docker run -d --name postgres-ssh --network ssh-test-net \
             -e POSTGRES_USER=testuser \
             -e POSTGRES_PASSWORD=TestPassword123! \
             -e POSTGRES_DB=test_miu_db \
             -p 5433:5432 \
             postgres:16-alpine
           for i in {1..30}; do
-            if docker exec postgres pg_isready -U testuser -d test_miu_db > /dev/null 2>&1; then
+            if docker exec postgres-ssh pg_isready -U testuser -d test_miu_db > /dev/null 2>&1; then
               echo "PostgreSQL is ready"
               break
             fi
@@ -536,10 +536,14 @@ jobs:
       - name: Start SSH server
         run: |
           docker run -d --name ssh-server --network ssh-test-net \
+            -e PUID=1000 \
+            -e PGID=1000 \
             -e PUBLIC_KEY="$(cat ~/.ssh/id_rsa.pub 2>/dev/null || echo 'ssh-rsa dummy')" \
             -e USER_NAME=testuser \
             -e PASSWORD_ACCESS=true \
             -e USER_PASSWORD=testpass \
+            -e DOCKER_MODS=linuxserver/mods:openssh-server-ssh-tunnel \
+            -v "$PWD/tests/fixtures/99-fix-sshd-config.sh:/custom-cont-init.d/99-fix-sshd-config" \
             -p 2222:2222 \
             linuxserver/openssh-server:latest
           sleep 10
@@ -550,8 +554,10 @@ jobs:
           SSH_PORT: 2222
           SSH_USER: testuser
           SSH_PASSWORD: testpass
-          POSTGRES_HOST: postgres
-          POSTGRES_PORT: 5432
+          SSH_REMOTE_DB_HOST: postgres-ssh
+          SSH_REMOTE_DB_PORT: 5432
+          SSH_DIRECT_PG_HOST: localhost
+          SSH_DIRECT_PG_PORT: 5433
           POSTGRES_USER: testuser
           POSTGRES_PASSWORD: TestPassword123!
           POSTGRES_DATABASE: test_miu_db
@@ -560,7 +566,7 @@ jobs:
       - name: Cleanup
         if: always()
         run: |
-          docker rm -f postgres ssh-server || true
+          docker rm -f postgres-ssh ssh-server || true
           docker network rm ssh-test-net || true
 
   security:
