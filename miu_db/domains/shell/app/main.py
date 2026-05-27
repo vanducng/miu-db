@@ -1482,4 +1482,4 @@ class SSMSTUI(
             try:
                 self.theme = DEFAULT_THEME
             except Exception:
-                self.theme = "sqlit"
+                self.theme = "miu-db"

@@ -100,7 +100,7 @@ class InstallOption:
 
 
 def detect_install_method(*, probe: SystemProbeProtocol | None = None) -> str:
-    """Detect how sqlit was installed/is running.
+    """Detect how miu-db was installed/is running.
 
     Returns one of: 'pipx', 'uv-tool', 'uvx', 'uv', 'conda', 'pip', or 'unknown'.
     'pipx', 'uv-tool', 'uvx', 'uv' (uv run), and 'conda' are high-confidence
@@ -234,7 +234,7 @@ def detect_strategy(
             manual_instructions=_format_manual_instructions(
                 package_name=package_name,
                 extra_name=extra_name,
-                reason="Unable to detect how sqlit was installed.",
+                reason="Unable to detect how miu-db was installed.",
                 probe=probe,
             ),
             reason_unavailable="Unable to detect installation method.",

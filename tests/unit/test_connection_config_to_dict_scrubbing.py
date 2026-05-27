@@ -2,7 +2,7 @@
 
 Covers both the structured endpoint/tunnel password fields and the
 connection_url field (which embeds the password as URL userinfo when the
-connection was created via `sqlit connections add --url`).
+connection was created via `miu-db connections add --url`).
 """
 
 from __future__ import annotations

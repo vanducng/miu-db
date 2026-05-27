@@ -352,7 +352,7 @@ class _MultiDbFilterHost(TreeFilterMixin):
 class TestMultiDbFilterIssue141:
     """Regression tests for issue #141.
 
-    When sqlit is connected in multi-database 'browse all' mode and the
+    When miu-db is connected in multi-database 'browse all' mode and the
     user has expanded into a database's Tables folder, opening `/` and
     typing a substring of a table name should find that table. It
     currently returns zero matches because `_update_tree_filter` calls

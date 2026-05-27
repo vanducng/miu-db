@@ -276,7 +276,7 @@ class SQLServerAdapter(DatabaseAdapter):
 
         A persistent file cache (~5 minute refresh-before-expiry buffer)
         avoids spawning `az account get-access-token` on every invocation,
-        which dominates cold-start cost for one-shot `sqlit query` runs.
+        which dominates cold-start cost for one-shot `miu-db query` runs.
 
         Failures surface as AzureAdAuthError with an actionable hint
         ("Please run 'az login'", etc.) instead of the driver's generic

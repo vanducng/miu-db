@@ -134,7 +134,7 @@ class FlightSQLAdapter(DatabaseAdapter):
         conn = flight_sql.connect(uri, db_kwargs=db_kwargs)
 
         # Store the catalog/database for later use
-        conn._sqlit_catalog = endpoint.database or None
+        conn._miu_db_catalog = endpoint.database or None
 
         return conn
 
@@ -177,7 +177,7 @@ class FlightSQLAdapter(DatabaseAdapter):
         try:
             # Try ADBC's get_objects method if available
             if hasattr(conn, "adbc_get_objects"):
-                catalog = database or getattr(conn, "_sqlit_catalog", None)
+                catalog = database or getattr(conn, "_miu_db_catalog", None)
                 objects = conn.adbc_get_objects(
                     depth="tables",
                     catalog_filter=catalog,
@@ -221,7 +221,7 @@ class FlightSQLAdapter(DatabaseAdapter):
         try:
             # Try ADBC's get_objects method if available
             if hasattr(conn, "adbc_get_objects"):
-                catalog = database or getattr(conn, "_sqlit_catalog", None)
+                catalog = database or getattr(conn, "_miu_db_catalog", None)
                 objects = conn.adbc_get_objects(
                     depth="tables",
                     catalog_filter=catalog,
@@ -265,7 +265,7 @@ class FlightSQLAdapter(DatabaseAdapter):
         try:
             # Try ADBC's get_table_schema method if available
             if hasattr(conn, "adbc_get_table_schema"):
-                catalog = database or getattr(conn, "_sqlit_catalog", None)
+                catalog = database or getattr(conn, "_miu_db_catalog", None)
                 arrow_schema = conn.adbc_get_table_schema(
                     catalog=catalog,
                     db_schema=schema,
@@ -364,7 +364,7 @@ class FlightSQLAdapter(DatabaseAdapter):
         """Convert an Arrow table to column names and row tuples.
 
         This handles the conversion from Arrow's columnar format to
-        the row-based format that sqlit expects.
+        the row-based format that miu-db expects.
         """
         if table is None or len(table) == 0:
             return [], []

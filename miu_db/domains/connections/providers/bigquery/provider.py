@@ -29,7 +29,7 @@ def _bigquery_docker_post_process(
     return DockerCredentials(
         user=creds.user,
         password=creds.password,
-        database=env_vars.get("BIGQUERY_DATASET", creds.database) or "test_sqlit",
+        database=env_vars.get("BIGQUERY_DATASET", creds.database) or "test_miu_db",
     )
 
 
@@ -53,7 +53,7 @@ SPEC = ProviderSpec(
             "database": ("BIGQUERY_DATASET",),
         },
         default_user="",
-        default_database="test_sqlit",
+        default_database="test_miu_db",
         preferred_host="test-project",  # Use as project ID, not actual host
         post_process=_bigquery_docker_post_process,
     ),

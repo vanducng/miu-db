@@ -5,7 +5,7 @@ tree, but `uv tool install` is persistent and `uvx` is ephemeral. They
 require different commands to add an extra dependency:
 
 - uv tool install → `uv tool install --reinstall --with X miu-db`
-- uvx            → `uvx --from miu-db --with X sqlit`
+- uvx            → `uvx --from miu-db --with X miu-db`
 
 The previous `is_uvx()` check (matching `/uv/tools/`) actually matched the
 persistent path and would hand `uv tool install` users a broken uvx

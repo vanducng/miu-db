@@ -9,20 +9,19 @@ and an in-memory fallback is provided for testing.
 
 from __future__ import annotations
 
+import os
 import secrets
 import time
 from abc import ABC, abstractmethod
 from typing import TYPE_CHECKING, Any
 
 from miu_db.shared.core.store import CONFIG_DIR, JSONFileStore
-from miu_db.shared.migration.env_compat import read_env_bool
 
 if TYPE_CHECKING:
     pass
 
 # Service name used for keyring storage
 KEYRING_SERVICE_NAME = "miu-db"
-LEGACY_KEYRING_SERVICE_NAME = "sqlit"  # sqlit-legacy: read by KeyringMigrator only; remove in v2.0
 
 # Settings key controlling whether plaintext credential storage is allowed.
 ALLOW_PLAINTEXT_CREDENTIALS_SETTING = "allow_plaintext_credentials"
@@ -71,7 +70,7 @@ class CredentialsPersistError(CredentialsError):
 
 def is_keyring_usable() -> bool:
     """Return True if a usable keyring backend appears to be available."""
-    if read_env_bool("MIU_DB_SKIP_KEYRING_PROBE", "SQLIT_SKIP_KEYRING_PROBE"):
+    if (os.environ.get("MIU_DB_SKIP_KEYRING_PROBE") or "").strip().lower() in {"1", "true", "yes", "on"}:
         return False
     from miu_db.shared.app.startup_profiler import span as startup_span
 

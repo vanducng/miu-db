@@ -67,8 +67,6 @@ You can leave the containers running between test runs - the test fixtures handl
 docker compose -f infra/docker/docker-compose.test.yml down
 ```
 
-# If you have existing sqlit-test-* containers from before the rename, run `docker compose -p sqlit down -v` to clean them up.
-
 ### Running Tests for Specific Databases
 
 ```bash

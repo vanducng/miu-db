@@ -10,7 +10,7 @@ from typing import Any
 
 def get_restart_cache_path() -> Path:
     """Return the cache path used for restart state."""
-    return Path(tempfile.gettempdir()) / "sqlit-driver-install-restore.json"
+    return Path(tempfile.gettempdir()) / "miu-db-driver-install-restore.json"
 
 
 def write_restart_cache(payload: dict[str, Any]) -> None:

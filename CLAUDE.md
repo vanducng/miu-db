@@ -83,7 +83,7 @@ Adding a new database means: drop a package under `miu_db/domains/connections/pr
 `miu-db --mock=<profile>` routes through `miu_db/domains/connections/app/mock_*.py` + top-level `miu_db/mock_settings.py`. Use this (and `fakesnow` for Snowflake) to develop UI without real DBs.
 
 ### Config location
-`$XDG_CONFIG_HOME/miu-db/` (default `~/.config/miu-db/`), overridable with `MIU_DB_CONFIG_DIR` (legacy `SQLIT_CONFIG_DIR` still accepted during v1.x deprecation window). Connection metadata → `connections.json`; passwords → OS keyring. Legacy `~/.config/sqlit/` and `~/.sqlit/` are auto-migrated on first run.
+`$XDG_CONFIG_HOME/miu-db/` (default `~/.config/miu-db/`), overridable with `MIU_DB_CONFIG_DIR`. Connection metadata → `connections.json`; passwords → OS keyring service `miu-db`.
 
 ## Conventions specific to this repo
 

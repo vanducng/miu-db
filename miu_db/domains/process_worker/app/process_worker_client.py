@@ -43,8 +43,8 @@ class ProcessWorkerClient:
         # pipe-closed errors so segfaults/import-time crashes aren't silent.
         # Created up-front because we pass the path into the spawn args.
         # If spawning fails we unlink it in the `except` below — otherwise a
-        # failed init leaves orphaned `sqlit-worker-*.log` files on disk.
-        fd, self._stderr_log_path = tempfile.mkstemp(prefix="sqlit-worker-", suffix=".log")
+        # failed init leaves orphaned `miu-db-worker-*.log` files on disk.
+        fd, self._stderr_log_path = tempfile.mkstemp(prefix="miu-db-worker-", suffix=".log")
         os.close(fd)
         try:
             try:

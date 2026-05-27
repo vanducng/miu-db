@@ -109,7 +109,7 @@ class DuckDBAdapter(DatabaseAdapter):
     ) -> Any:
         """Connect to a per-process sidecar `.duckdb` backed by a data file.
 
-        On first connect within a sqlit process the source file is loaded
+        On first connect within a miu-db process the source file is loaded
         into a real table so the user can run UPDATE/INSERT/DELETE against
         it. Subsequent connects in the same process reuse the sidecar so
         in-session edits persist across query Runs. The sidecar lives under

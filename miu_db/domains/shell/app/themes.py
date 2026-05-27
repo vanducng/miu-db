@@ -21,7 +21,7 @@ DEFAULT_MODE_COLORS = {
 }
 
 LIGHT_THEME_NAMES = {
-    "sqlit-light",
+    "miu-db-light",
     "textual-light",
     "solarized-light",
     "catppuccin-latte",
@@ -31,7 +31,7 @@ LIGHT_THEME_NAMES = {
 
 MIU_DB_THEMES = [
     Theme(
-        name="sqlit",
+        name="miu-db",
         primary="#97CB93",
         secondary="#6D8DC4",
         accent="#6D8DC4",
@@ -53,7 +53,7 @@ MIU_DB_THEMES = [
         },
     ),
     Theme(
-        name="sqlit-light",
+        name="miu-db-light",
         primary="#2E7D32",
         secondary="#1565C0",
         accent="#1565C0",
@@ -408,8 +408,8 @@ def _apply_mode_color_defaults(themes: list[Theme]) -> None:
 _apply_mode_color_defaults(MIU_DB_THEMES)
 
 MIU_DB_TEXTAREA_THEMES: dict[str, TextAreaTheme] = {
-    "sqlit-light": TextAreaTheme(
-        name="sqlit-light",
+    "miu-db-light": TextAreaTheme(
+        name="miu-db-light",
         syntax_styles={
             "keyword": Style(color="#D73A49", bold=True),
             "keyword.operator": Style(color="#D73A49"),

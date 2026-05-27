@@ -47,6 +47,7 @@ def test_detect_strategy_pip_user_fallback(tmp_path):
         pip_available=True,
         user_site_enabled=True,
         sysconfig_paths={"purelib": str(tmp_path / "purelib")},
+        stdlib_paths=[],
         path_writable=lambda _path: False,
     )
 

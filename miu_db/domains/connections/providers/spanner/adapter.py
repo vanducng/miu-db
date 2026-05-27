@@ -142,10 +142,10 @@ class SpannerAdapter(CursorBasedAdapter):
         conn = spanner_dbapi.connect(**connect_kwargs)
 
         # Store config for later use
-        conn._sqlit_spanner_database = database
+        conn._miu_db_spanner_database = database
 
         # Detect and store the database dialect (GoogleSQL or PostgreSQL)
-        conn._sqlit_spanner_dialect = self._detect_dialect(conn)
+        conn._miu_db_spanner_dialect = self._detect_dialect(conn)
 
         return conn
 
@@ -169,7 +169,7 @@ class SpannerAdapter(CursorBasedAdapter):
 
     def _get_dialect(self, conn: Any) -> str:
         """Get the cached dialect for a connection."""
-        dialect = getattr(conn, "_sqlit_spanner_dialect", None)
+        dialect = getattr(conn, "_miu_db_spanner_dialect", None)
         if dialect is None:
             msg = "Spanner dialect not detected on connection"
             raise ValueError(msg)
@@ -177,7 +177,7 @@ class SpannerAdapter(CursorBasedAdapter):
 
     def get_databases(self, conn: Any) -> list[str]:
         """Return the connected database (Spanner is single-database per connection)."""
-        database = getattr(conn, "_sqlit_spanner_database", None)
+        database = getattr(conn, "_miu_db_spanner_database", None)
         if database:
             return [database]
         return []

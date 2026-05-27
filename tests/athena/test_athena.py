@@ -20,6 +20,13 @@ import pytest
 from tests.athena.fixtures import AWS_PROFILE, HAS_BOTO3, athena_setup, aws_session
 
 try:
+    import pyathena  # noqa: F401
+
+    HAS_PYATHENA = True
+except ImportError:
+    HAS_PYATHENA = False
+
+try:
     from miu_db.domains.connections.providers.athena.adapter import AthenaAdapter
     from tests.helpers import ConnectionConfig
 
@@ -30,6 +37,7 @@ except ImportError:
 # Skip all tests if dependencies missing
 pytestmark = [
     pytest.mark.skipif(not HAS_BOTO3, reason="boto3 not installed"),
+    pytest.mark.skipif(not HAS_PYATHENA, reason="pyathena not installed"),
     pytest.mark.skipif(not HAS_ADAPTER, reason="Athena adapter not available"),
 ]
 

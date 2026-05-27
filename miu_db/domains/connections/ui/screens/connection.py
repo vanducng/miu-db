@@ -2,9 +2,8 @@
 
 from __future__ import annotations
 
+import os
 from typing import Any, cast
-
-from miu_db.shared.migration.env_compat import read_env
 
 from textual.app import ComposeResult
 from textual.binding import Binding
@@ -358,7 +357,7 @@ class ConnectionScreen(ModalScreen):
         import sys
         import time
 
-        debug = read_env("MIU_DB_DEBUG_TIMING", "SQLIT_DEBUG_TIMING")
+        debug = os.environ.get("MIU_DB_DEBUG_TIMING")
 
         if debug:
             t0 = time.perf_counter()
@@ -415,7 +414,7 @@ class ConnectionScreen(ModalScreen):
         import sys
         import time
 
-        debug = read_env("MIU_DB_DEBUG_TIMING", "SQLIT_DEBUG_TIMING")
+        debug = os.environ.get("MIU_DB_DEBUG_TIMING")
         if debug:
             t0 = time.perf_counter()
 

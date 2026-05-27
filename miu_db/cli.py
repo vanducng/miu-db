@@ -21,7 +21,6 @@ from miu_db.shared.app.startup_profiler import enable_import_timing
 from miu_db.shared.app.startup_profiler import log_step as log_startup_step
 from miu_db.shared.app.startup_profiler import span as startup_span
 from miu_db.shared.app.services import build_app_services
-from miu_db.shared.migration.env_compat import read_env
 
 
 def _get_schema_value_flags() -> set[str]:
@@ -185,9 +184,9 @@ def _parse_float_value(value: str | None, default: float) -> float:
 
 
 def _resolve_startup_log_path(argv: list[str]) -> Path | None:
-    env_profile = read_env("MIU_DB_PROFILE_STARTUP", "SQLIT_PROFILE_STARTUP") == "1"
-    env_exit = read_env("MIU_DB_PROFILE_STARTUP_EXIT", "SQLIT_PROFILE_STARTUP_EXIT") == "1"
-    env_log_path = (read_env("MIU_DB_PROFILE_STARTUP_FILE", "SQLIT_PROFILE_STARTUP_FILE") or "").strip() or None
+    env_profile = os.environ.get("MIU_DB_PROFILE_STARTUP") == "1"
+    env_exit = os.environ.get("MIU_DB_PROFILE_STARTUP_EXIT") == "1"
+    env_log_path = (os.environ.get("MIU_DB_PROFILE_STARTUP_FILE") or "").strip() or None
 
     profile_enabled = env_profile or env_exit or bool(env_log_path)
     log_path = Path(env_log_path).expanduser() if env_log_path else None
@@ -212,9 +211,9 @@ def _resolve_startup_log_path(argv: list[str]) -> Path | None:
 
 
 def _resolve_startup_import_settings(argv: list[str]) -> tuple[Path | None, float]:
-    env_log_path = (read_env("MIU_DB_PROFILE_STARTUP_IMPORTS_FILE", "SQLIT_PROFILE_STARTUP_IMPORTS_FILE") or "").strip() or None
-    env_enabled = read_env("MIU_DB_PROFILE_STARTUP_IMPORTS", "SQLIT_PROFILE_STARTUP_IMPORTS") == "1" or bool(env_log_path)
-    env_min_ms = _parse_float_value(read_env("MIU_DB_PROFILE_STARTUP_IMPORTS_MIN_MS", "SQLIT_PROFILE_STARTUP_IMPORTS_MIN_MS"), 1.0)
+    env_log_path = (os.environ.get("MIU_DB_PROFILE_STARTUP_IMPORTS_FILE") or "").strip() or None
+    env_enabled = os.environ.get("MIU_DB_PROFILE_STARTUP_IMPORTS") == "1" or bool(env_log_path)
+    env_min_ms = _parse_float_value(os.environ.get("MIU_DB_PROFILE_STARTUP_IMPORTS_MIN_MS"), 1.0)
 
     enabled = env_enabled
     log_path = Path(env_log_path).expanduser() if env_log_path else None
@@ -315,14 +314,6 @@ def _build_runtime(args: argparse.Namespace, startup_mark: float) -> RuntimeConf
 def main() -> int:
     """Entry point for the CLI."""
     startup_mark = time.perf_counter()
-
-    from miu_db.shared.migration.config_migrator import ConfigMigrator
-    import warnings as _warnings
-    _migration_result = ConfigMigrator().migrate()
-    if _migration_result.migrated:
-        print(f"Migrated config from {_migration_result.source} to {ConfigMigrator().NEW_PATH}", file=sys.stderr)
-    for _err in _migration_result.errors:
-        _warnings.warn(_err)
 
     startup_log_path = _resolve_startup_log_path(sys.argv)
     startup_import_log_path, startup_import_min_ms = _resolve_startup_import_settings(sys.argv)

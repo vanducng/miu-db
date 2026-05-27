@@ -74,7 +74,6 @@ existing `client is None` → in-process schema-service fallback path.
   ```bash
   MIU_DB_PROCESS_WORKER=0 miu-db
   ```
-  (`SQLIT_PROCESS_WORKER=0` still works in v1.x during the deprecation window.)
 - **Use a different PG driver in your venv.** Installing `psycopg` (v3)
   alongside psycopg2-binary does not automatically route the worker
   through it — see "Proposed fixes" below.

@@ -18,7 +18,7 @@ Validates the end-user flow for missing Python DB drivers:
 This integration test can export Textual screenshots (SVG) from inside the container to the host:
 
 - Output directory: `tests/integration/python_packages/artifacts/`
-- Enable via `SQLIT_TEST_SCREENSHOTS_DIR=/artifacts` (already set in `tests/integration/python_packages/docker-compose.yml`)
+- Enable via `MIU_DB_TEST_SCREENSHOTS_DIR=/artifacts` (already set in `tests/integration/python_packages/docker-compose.yml`)
 
 ## Requirements
 

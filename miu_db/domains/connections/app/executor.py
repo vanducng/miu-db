@@ -48,7 +48,7 @@ class DatabaseExecutor:
         self._session = session
         self._executor = ThreadPoolExecutor(
             max_workers=1,
-            thread_name_prefix="sqlit-db-",
+            thread_name_prefix="miu-db-",
         )
         self._lock = threading.Lock()
         self._current_future: Future | None = None

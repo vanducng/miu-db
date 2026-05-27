@@ -1,11 +1,11 @@
 """Persistent file cache for Azure SQL access tokens.
 
-Each `sqlit query` invocation otherwise spawns `az account get-access-token`
+Each `miu-db query` invocation otherwise spawns `az account get-access-token`
 via azure-identity's AzureCliCredential, which costs ~300ms-1s of CLI
 startup. Caching the JWT on disk between invocations makes one-shot queries
 roughly as fast as the SQL roundtrip itself.
 
-The token is stored at 0600 under the user's sqlit config dir. Anyone with
+The token is stored at 0600 under the user's miu-db config dir. Anyone with
 read access to that file can impersonate the user against Azure SQL for the
 token's remaining lifetime (default 1h) — same tradeoff as caching `az`'s
 own MSAL cache, and the same threat surface as `~/.azure/`.

@@ -228,7 +228,7 @@ def _maybe_exit_after_refresh(app: AppProtocol) -> None:
 
 
 def _get_restart_cache_path() -> Path:
-    return Path(tempfile.gettempdir()) / "sqlit-driver-install-restore.json"
+    return Path(tempfile.gettempdir()) / "miu-db-driver-install-restore.json"
 
 
 def maybe_auto_connect_pending(app: AppProtocol) -> bool:

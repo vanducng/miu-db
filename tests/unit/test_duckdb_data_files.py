@@ -87,7 +87,7 @@ class TestSidecarPath:
         sc = sidecar_path_for(tmp_path / "sales.csv")
         assert sc.suffix == ".duckdb"
         # The PID is in the path so different processes don't collide.
-        assert f"sqlit-{os.getpid()}" in sc.parts
+        assert f"miu-db-{os.getpid()}" in sc.parts
 
     def test_different_sources_have_different_sidecars(self, tmp_path):
         a = sidecar_path_for(tmp_path / "a.csv")
@@ -217,7 +217,7 @@ class TestCRUDAgainstDataFile:
         assert rows == [("north", 200), ("south", 200), ("west", 999)]
 
     def test_fresh_sidecar_reloads_from_source(self, tmp_path):
-        """Simulates a new sqlit process by deleting the sidecar — the
+        """Simulates a new miu-db process by deleting the sidecar — the
         adapter should re-read the source file and the user's previous
         edits should be gone."""
         csv_file = tmp_path / "sales.csv"

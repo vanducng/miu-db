@@ -23,7 +23,7 @@ SPEC = ProviderSpec(
     requires_auth=True,
     badge_label="D1",
     docker_detector=DockerDetector(
-        image_patterns=("miniflare", "sqlit-miniflare"),
+        image_patterns=("miniflare", "miu-db-miniflare"),
         env_vars={
             "user": ("D1_ACCOUNT_ID",),
             "password": ("D1_API_TOKEN",),

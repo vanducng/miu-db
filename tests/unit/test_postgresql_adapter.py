@@ -37,7 +37,7 @@ def test_postgresql_peer_auth_omits_empty_tcp_args() -> None:
 def test_postgresql_uses_custom_port_when_server_left_blank() -> None:
     """Regression test for issue #205.
 
-    A user pointed sqlit at a docker Postgres on 127.0.0.1:5433. They left
+    A user pointed miu-db at a docker Postgres on 127.0.0.1:5433. They left
     the Server field blank (its placeholder says 'localhost') and set the
     Port field to 5433. libpq then reported it couldn't reach
     /run/postgresql/.s.PGSQL.5432 — i.e. neither host nor port made it

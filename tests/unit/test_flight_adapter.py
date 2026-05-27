@@ -362,7 +362,7 @@ class TestFlightSQLAdapterConnect:
         )
 
     def test_connect_stores_catalog(self):
-        """Test that database is stored as _sqlit_catalog on connection."""
+        """Test that database is stored as _miu_db_catalog on connection."""
         config = ConnectionConfig(
             name="test",
             db_type="flight",
@@ -378,7 +378,7 @@ class TestFlightSQLAdapterConnect:
             {},
         )
         # Verify catalog is stored
-        assert conn._sqlit_catalog == "my_catalog"
+        assert conn._miu_db_catalog == "my_catalog"
 
     def test_connect_tls_skip_verify(self):
         """Test TLS with skip verify option."""

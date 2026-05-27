@@ -1,6 +1,6 @@
 """Deprecated registry shim.
 
-Prefer sqlit.domains.connections.providers.catalog/metadata/validation.
+Prefer miu_db.domains.connections.providers.catalog/metadata/validation.
 """
 
 from __future__ import annotations

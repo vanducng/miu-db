@@ -90,10 +90,10 @@ class BigQueryAdapter(CursorBasedAdapter):
         return dataset if isinstance(dataset, str) and dataset else None
 
     def _get_connection_job_config(self, conn: Any) -> Any | None:
-        return getattr(conn, "_sqlit_bq_job_config", None)
+        return getattr(conn, "_miu_db_bq_job_config", None)
 
     def _get_default_dataset_for_conn(self, conn: Any) -> str | None:
-        dataset = getattr(conn, "_sqlit_bq_default_dataset", None)
+        dataset = getattr(conn, "_miu_db_bq_default_dataset", None)
         if isinstance(dataset, str) and dataset:
             return dataset
         return None
@@ -102,7 +102,7 @@ class BigQueryAdapter(CursorBasedAdapter):
         client = getattr(conn, "client", None)
         if client is not None:
             return client
-        client = getattr(conn, "_sqlit_bq_client", None)
+        client = getattr(conn, "_miu_db_bq_client", None)
         return client
 
     def connect(self, config: ConnectionConfig) -> BigQueryConnection:
@@ -180,11 +180,11 @@ class BigQueryAdapter(CursorBasedAdapter):
                 client.default_query_job_config = job_config
 
         conn = dbapi.connect(client=client)
-        setattr(conn, "_sqlit_bq_client", client)
+        setattr(conn, "_miu_db_bq_client", client)
         if default_dataset:
-            setattr(conn, "_sqlit_bq_default_dataset", default_dataset)
+            setattr(conn, "_miu_db_bq_default_dataset", default_dataset)
         if job_config:
-            setattr(conn, "_sqlit_bq_job_config", job_config)
+            setattr(conn, "_miu_db_bq_job_config", job_config)
 
         return conn
 

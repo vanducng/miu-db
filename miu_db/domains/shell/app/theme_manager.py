@@ -55,7 +55,6 @@ CUSTOM_THEME_FIELDS = {
     "variables",
 }
 
-
 class ThemeAppProtocol(Protocol):
     theme: str
 
@@ -149,7 +148,7 @@ class ThemeManager:
             if theme_name in MIU_DB_TEXTAREA_THEMES:
                 self._app.query_input.theme = theme_name
             elif theme_name in self._light_theme_names:
-                self._app.query_input.theme = "sqlit-light"
+                self._app.query_input.theme = "miu-db-light"
             else:
                 self._app.query_input.theme = "css"
         except Exception:
@@ -249,13 +248,17 @@ class ThemeManager:
 
     def _init_omarchy_theme(self, settings: dict) -> None:
         # CLI --theme flag takes precedence over everything
-        if self._override_theme and self._override_theme in self._app.available_themes:
-            self._app._apply_theme_safe(self._override_theme)
+        override_theme = self._override_theme
+        if override_theme and override_theme in self._app.available_themes:
+            self._app._apply_theme_safe(override_theme)
             return
 
         saved_theme = settings.get("theme")
         if not is_omarchy_installed():
-            self._app._apply_theme_safe(saved_theme or DEFAULT_THEME)
+            if isinstance(saved_theme, str) and saved_theme in self._app.available_themes:
+                self._app._apply_theme_safe(saved_theme)
+            else:
+                self._app._apply_theme_safe(DEFAULT_THEME)
             return
 
         matched_theme = get_matching_textual_theme(set(self._app.available_themes))

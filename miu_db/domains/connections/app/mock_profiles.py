@@ -179,7 +179,7 @@ def _create_driver_install_fail_profile() -> MockProfile:
                     "kind": "tcp",
                     "host": "localhost",
                     "port": "3306",
-                    "database": "test_sqlit",
+                    "database": "test_miu_db",
                     "username": "user",
                     "password": None,
                 },
@@ -208,7 +208,7 @@ def _create_perf_test_profile() -> MockProfile:
     """Create a performance testing profile.
 
     Usage:
-        sqlit --mock=perf-test --demo-rows=10000
+        miu-db --mock=perf-test --demo-rows=10000
 
     This profile is designed for testing DataTable rendering performance
     with large datasets. Use --demo-rows to specify the number of rows.

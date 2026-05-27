@@ -2,9 +2,8 @@
 
 from __future__ import annotations
 
+import os
 from typing import TYPE_CHECKING
-
-from miu_db.shared.migration.env_compat import read_env_bool
 
 from .base import AccountInfo, ProviderState, ProviderStatus
 
@@ -14,7 +13,7 @@ if TYPE_CHECKING:
 
 def is_mock_cloud_enabled() -> bool:
     """Check if mock cloud mode is enabled."""
-    return read_env_bool("MIU_DB_MOCK_CLOUD", "SQLIT_MOCK_CLOUD")
+    return (os.environ.get("MIU_DB_MOCK_CLOUD") or "").strip().lower() in {"1", "true", "yes", "on"}
 
 
 def get_mock_azure_state() -> ProviderState:

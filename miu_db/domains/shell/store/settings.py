@@ -2,15 +2,15 @@
 
 from __future__ import annotations
 
+import os
 from pathlib import Path
 from typing import Any
 
 from miu_db.shared.core.store import CONFIG_DIR, JSONFileStore
-from miu_db.shared.migration.env_compat import read_env
 
 
 def _resolve_settings_path() -> Path:
-    override = (read_env("MIU_DB_SETTINGS_PATH", "SQLIT_SETTINGS_PATH") or "").strip()
+    override = (os.environ.get("MIU_DB_SETTINGS_PATH") or "").strip()
     if override:
         return Path(override).expanduser()
     return CONFIG_DIR / "settings.json"

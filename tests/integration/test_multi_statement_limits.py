@@ -1,6 +1,6 @@
 """Integration test for multi-statement LIMIT enforcement.
 
-Regression test for https://github.com/fredrikaverpil/sqlit/issues/132:
+Regression test for multi-statement result limiting:
 When running multiple queries with different LIMIT clauses via "Run All",
 each result table should have the correct number of rows.
 

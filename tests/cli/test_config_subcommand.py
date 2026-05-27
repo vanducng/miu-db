@@ -34,7 +34,7 @@ def test_config_edit_creates_missing_file(tmp_path: Path) -> None:
         "config",
         "edit",
         env_overrides={
-            "SQLIT_SETTINGS_PATH": str(settings),
+            "MIU_DB_SETTINGS_PATH": str(settings),
             "EDITOR": "true",
             "VISUAL": "",
         },
@@ -52,7 +52,7 @@ def test_config_edit_opens_existing_file(tmp_path: Path) -> None:
         "config",
         "edit",
         env_overrides={
-            "SQLIT_SETTINGS_PATH": str(settings),
+            "MIU_DB_SETTINGS_PATH": str(settings),
             "EDITOR": "true",
             "VISUAL": "",
         },
@@ -70,7 +70,7 @@ def test_config_edit_no_editor_available(tmp_path: Path) -> None:
         "config",
         "edit",
         env_overrides={
-            "SQLIT_SETTINGS_PATH": str(settings),
+            "MIU_DB_SETTINGS_PATH": str(settings),
             "EDITOR": "",
             "VISUAL": "",
             "PATH": str(empty_bin),
@@ -86,7 +86,7 @@ def test_config_show_keymap_default(tmp_path: Path) -> None:
     result = _run(
         "config",
         "show-keymap",
-        env_overrides={"SQLIT_SETTINGS_PATH": str(settings)},
+        env_overrides={"MIU_DB_SETTINGS_PATH": str(settings)},
     )
     assert result.returncode == 0, result.stderr
     lines = result.stdout.splitlines()
@@ -106,7 +106,7 @@ def test_config_show_keymap_with_override(tmp_path: Path) -> None:
     result = _run(
         "config",
         "show-keymap",
-        env_overrides={"SQLIT_SETTINGS_PATH": str(settings)},
+        env_overrides={"MIU_DB_SETTINGS_PATH": str(settings)},
     )
     assert result.returncode == 0, result.stderr
     focus_explorer_lines = [
@@ -124,7 +124,7 @@ def test_config_show_keymap_tolerates_malformed_settings(tmp_path: Path) -> None
     result = _run(
         "config",
         "show-keymap",
-        env_overrides={"SQLIT_SETTINGS_PATH": str(settings)},
+        env_overrides={"MIU_DB_SETTINGS_PATH": str(settings)},
     )
     assert result.returncode == 0, result.stderr
     assert "focus_explorer" in result.stdout
@@ -144,7 +144,7 @@ def test_config_edit_handles_multiword_editor(tmp_path: Path) -> None:
         "config",
         "edit",
         env_overrides={
-            "SQLIT_SETTINGS_PATH": str(settings),
+            "MIU_DB_SETTINGS_PATH": str(settings),
             # Multi-word command: first token is the script, `--flag` is an arg.
             "EDITOR": f"{fake} --flag",
             "VISUAL": "",
@@ -165,7 +165,7 @@ def test_config_show_keymap_does_not_flag_rejected_overrides(tmp_path: Path) -> 
     result = _run(
         "config",
         "show-keymap",
-        env_overrides={"SQLIT_SETTINGS_PATH": str(settings)},
+        env_overrides={"MIU_DB_SETTINGS_PATH": str(settings)},
     )
     assert result.returncode == 0, result.stderr
     quit_lines = [ln for ln in result.stdout.splitlines() if " quit " in f" {ln} "]
@@ -181,7 +181,7 @@ def test_config_show_keymap_output_is_sortable(tmp_path: Path) -> None:
     result = _run(
         "config",
         "show-keymap",
-        env_overrides={"SQLIT_SETTINGS_PATH": str(settings)},
+        env_overrides={"MIU_DB_SETTINGS_PATH": str(settings)},
     )
     assert result.returncode == 0
     # No ANSI escape codes — pipe-friendly plain stdout.

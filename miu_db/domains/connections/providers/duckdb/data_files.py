@@ -1,13 +1,13 @@
 """Detection of data files queryable directly by DuckDB.
 
 DuckDB's `read_csv_auto`, `read_parquet`, `read_json_auto` etc. let you
-query a raw data file as if it were a table. When a sqlit DuckDB connection
+query a raw data file as if it were a table. When a miu-db DuckDB connection
 points at one of these files instead of a `.duckdb` database, the adapter:
 
 1. Picks a per-process sidecar `.duckdb` file in the OS temp dir.
 2. Loads the source file into a real TABLE in the sidecar on first connect.
 3. Lets the user CRUD the table freely; edits persist for the lifetime of
-   the sqlit process and are wiped on restart.
+   the miu-db process and are wiped on restart.
 4. Writing back to the source file is explicit (`COPY <table> TO '<path>'`).
 """
 
@@ -95,12 +95,12 @@ def table_name_for(path: Path) -> str:
 def sidecar_path_for(source_path: Path) -> Path:
     """Per-process scratch `.duckdb` path for a data-file source.
 
-    Each sqlit process gets its own directory under the OS temp dir. The
+    Each miu-db process gets its own directory under the OS temp dir. The
     sidecar persists for the lifetime of the process so edits within a
-    sqlit session survive across query Runs. A fresh process gets a fresh
+    miu-db session survive across query Runs. A fresh process gets a fresh
     sidecar, so source-file changes are picked up on restart and unsaved
     edits are wiped (the user opted into "re-load from source each time").
     """
     digest = hashlib.sha1(str(source_path.resolve()).encode()).hexdigest()[:16]
-    base = Path(tempfile.gettempdir()) / f"sqlit-{os.getpid()}" / "data-files"
+    base = Path(tempfile.gettempdir()) / f"miu-db-{os.getpid()}" / "data-files"
     return base / f"{digest}.duckdb"

@@ -5,7 +5,7 @@
 <h3 align="center">miu-db — query any database, from your terminal</h3>
 
 <p align="center">
-  <em>A fast, modal TUI for SQL databases. Vim keys, 25+ adapters, zero config.</em>
+  <em>A miumono database TUI. Vim keys, 25+ adapters, zero config.</em>
 </p>
 
 <p align="center">
@@ -18,11 +18,8 @@
   <code>pipx install miu-db</code>
 </p>
 
-<p align="center">
-  <a href="https://www.buymeacoffee.com/PeterAdams"><img src="https://img.shields.io/badge/Buy%20Me%20a%20Coffee-ffdd00?style=flat&logo=buy-me-a-coffee&logoColor=black" alt="Buy Me a Coffee"></a>
-</p>
-
----
+miu-db is part of the miumono umbrella: terminal-native tools in the `miu-*`
+family, with independent install and release flow for database work.
 
 ### Connect
 Supports all major databases: SQL Server, PostgreSQL, MySQL, SQLite, MariaDB, FirebirdSQL, Oracle, DuckDB, CockroachDB, ClickHouse, Snowflake, Supabase, CloudFlare D1, Turso, Athena, BigQuery, Spanner, RedShift, IBM Db2, SAP HANA, Teradata, Trino, Presto, Apache Flight SQL, Apache Impala, SurrealDB and osquery.
@@ -99,8 +96,6 @@ miu-db is for the developer who just wants to query their database with a user f
 ---
 
 ## Installation
-
-> **Migrating from `sqlit-tui`?** Just `pip install miu-db` (or `pipx install miu-db`). First launch will copy your saved connections from `~/.config/sqlit/` and your keyring credentials to the new location automatically. Your old data stays in place as a safety backup. The `SQLIT_*` environment variables still work during the v1.x deprecation window.
 
 ```bash
 # pipx (recommended)
@@ -243,7 +238,7 @@ Autocomplete triggers automatically in INSERT mode. Use `Tab` to accept.
 
 ## Configuration
 
-Configuration lives in `$XDG_CONFIG_HOME/miu-db/` (default `~/.config/miu-db/`), overridable with `MIU_DB_CONFIG_DIR`. Legacy locations `~/.config/sqlit/` and `~/.sqlit/` are auto-migrated on first run (copy, not move — your old data is preserved). The `SQLIT_CONFIG_DIR` env var still works during the v1.x deprecation window.
+Configuration lives in `$XDG_CONFIG_HOME/miu-db/` (default `~/.config/miu-db/`), overridable with `MIU_DB_CONFIG_DIR`.
 
 ### Customizing keybindings
 
@@ -366,5 +361,5 @@ MIT
 
 ## Acknowledgments
 
-miu-db is a rebrand of [sqlit by Maxteabag](https://github.com/Maxteabag/sqlit).
-Thanks to the upstream project for the foundation.
+miu-db is built with Textual and a broad Python database ecosystem. Thanks to
+the maintainers of those projects for the foundation this tool builds on.

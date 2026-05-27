@@ -26,7 +26,7 @@ def add_azure_firewall_rule(
     Returns:
         Tuple of (success, message).
     """
-    rule_name = f"sqlit-{ip_address.replace('.', '-')}"
+    rule_name = f"miu-db-{ip_address.replace('.', '-')}"
     args = [
         "sql", "server", "firewall-rule", "create",
         "--resource-group", resource_group,
