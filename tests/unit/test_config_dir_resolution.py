@@ -8,6 +8,14 @@ from pathlib import Path
 import pytest
 
 
+@pytest.fixture(autouse=True)
+def _restore_store_module_after_test() -> None:
+    yield
+    from miu_db.shared.core import store
+
+    importlib.reload(store)
+
+
 def _isolated_home(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> Path:
     """Point `Path.home()` at a tmpdir and clear env vars that matter."""
     monkeypatch.setenv("HOME", str(tmp_path))
