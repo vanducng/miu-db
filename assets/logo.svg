@@ -1,31 +1,49 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-labelledby="title desc">
   <title id="title">miu-db logo</title>
-  <desc id="desc">A geometric miumono database mark with terminal brackets and a database core.</desc>
+  <desc id="desc">A geometric miumono database core with terminal query paths.</desc>
   <defs>
-    <linearGradient id="bg" x1="58" y1="42" x2="450" y2="478" gradientUnits="userSpaceOnUse">
-      <stop offset="0" stop-color="#141820"/>
-      <stop offset="0.54" stop-color="#0B1017"/>
-      <stop offset="1" stop-color="#10151E"/>
+    <radialGradient id="bgGlow" cx="50%" cy="45%" r="72%">
+      <stop offset="0" stop-color="#202833"/>
+      <stop offset="0.68" stop-color="#10161F"/>
+      <stop offset="1" stop-color="#070A0F"/>
+    </radialGradient>
+    <linearGradient id="face" x1="116" y1="94" x2="396" y2="430" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#3B424B"/>
+      <stop offset="0.45" stop-color="#161C24"/>
+      <stop offset="1" stop-color="#070A0F"/>
     </linearGradient>
-    <linearGradient id="cyan" x1="118" y1="114" x2="377" y2="388" gradientUnits="userSpaceOnUse">
-      <stop offset="0" stop-color="#74F7FF"/>
-      <stop offset="1" stop-color="#3D8BFF"/>
+    <linearGradient id="cyan" x1="112" y1="130" x2="324" y2="390" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#7BF9FF"/>
+      <stop offset="1" stop-color="#0ABAD1"/>
     </linearGradient>
-    <linearGradient id="amber" x1="165" y1="128" x2="350" y2="394" gradientUnits="userSpaceOnUse">
-      <stop offset="0" stop-color="#FFD179"/>
-      <stop offset="1" stop-color="#FF8A4B"/>
+    <linearGradient id="amber" x1="224" y1="126" x2="424" y2="382" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#FFD178"/>
+      <stop offset="1" stop-color="#FF8B2C"/>
     </linearGradient>
-    <filter id="soft" x="-20%" y="-20%" width="140%" height="140%">
-      <feDropShadow dx="0" dy="18" stdDeviation="22" flood-color="#000000" flood-opacity="0.36"/>
+    <filter id="shadow" x="-30%" y="-30%" width="160%" height="160%">
+      <feDropShadow dx="0" dy="22" stdDeviation="22" flood-color="#000" flood-opacity="0.55"/>
+    </filter>
+    <filter id="cyanGlow" x="-80%" y="-80%" width="260%" height="260%">
+      <feDropShadow dx="0" dy="0" stdDeviation="8" flood-color="#26EAF4" flood-opacity="0.85"/>
+    </filter>
+    <filter id="amberGlow" x="-80%" y="-80%" width="260%" height="260%">
+      <feDropShadow dx="0" dy="0" stdDeviation="8" flood-color="#FFB02E" flood-opacity="0.85"/>
     </filter>
   </defs>
-  <rect width="512" height="512" rx="96" fill="url(#bg)"/>
-  <path d="M126 164 72 256l54 92" fill="none" stroke="#4B5568" stroke-width="24" stroke-linecap="round" stroke-linejoin="round"/>
-  <path d="m386 164 54 92-54 92" fill="none" stroke="#4B5568" stroke-width="24" stroke-linecap="round" stroke-linejoin="round"/>
-  <g filter="url(#soft)">
-    <path d="M160 324V190c0-29 22-52 50-52 20 0 38 12 46 30 8-18 26-30 46-30 28 0 50 23 50 52v134" fill="none" stroke="url(#cyan)" stroke-width="38" stroke-linecap="round" stroke-linejoin="round"/>
-    <ellipse cx="256" cy="329" rx="86" ry="34" fill="#111923" stroke="url(#amber)" stroke-width="22"/>
-    <path d="M170 329v42c0 19 38 35 86 35s86-16 86-35v-42" fill="none" stroke="url(#amber)" stroke-width="22" stroke-linecap="round"/>
-    <path d="M206 244h100" stroke="#EAFBFF" stroke-width="24" stroke-linecap="round"/>
+  <rect width="512" height="512" rx="96" fill="url(#bgGlow)"/>
+
+  <g fill="none" stroke-linecap="round" stroke-linejoin="round" opacity="0.96">
+    <path d="M90 281c72-64 260-73 332 0" stroke="url(#cyan)" stroke-width="8" filter="url(#cyanGlow)"/>
+    <path d="M422 281c-72 64-260 73-332 0" stroke="url(#amber)" stroke-width="8" filter="url(#amberGlow)"/>
+    <path d="m93 248-28 28 28 28" stroke="url(#cyan)" stroke-width="22" filter="url(#cyanGlow)"/>
+    <path d="m419 248 28 28-28 28" stroke="url(#amber)" stroke-width="22" filter="url(#amberGlow)"/>
+  </g>
+
+  <g filter="url(#shadow)">
+    <path d="M256 94 372 158v132L256 358 140 290V158Z" fill="url(#face)" stroke="#69717C" stroke-width="4"/>
+    <path d="M256 94v126M140 158l116 62 116-62M140 290l116-70 116 70M256 358V220" fill="none" stroke="#0D141C" stroke-width="12" stroke-linejoin="round"/>
+    <path d="M256 132 334 175v88l-78 45-78-45v-88Z" fill="#091119" stroke="#20313B" stroke-width="8"/>
+    <path d="M256 166 304 193v54l-48 28-48-28v-54Z" fill="#0B2B34" stroke="url(#cyan)" stroke-width="10" filter="url(#cyanGlow)"/>
+    <path d="M256 192v54M231 207l25 15 25-15" stroke="#8DFBFF" stroke-width="8" opacity="0.9"/>
   </g>
 </svg>
