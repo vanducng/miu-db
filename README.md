@@ -1,11 +1,11 @@
 <p align="center">
-  <img src="assets/logo.png" alt="miu-db logo" width="128">
+  <img src="https://raw.githubusercontent.com/vanducng/miu-db/main/assets/logo.png" alt="miu-db logo" width="128">
 </p>
 
 <h1 align="center">miu-db</h1>
 
 <p align="center">
-  <strong>Miumono database console for the terminal.</strong>
+  <strong>Fast terminal SQL across your databases.</strong>
   <br>
   Pick a connection, write SQL, inspect results, stay in your shell.
 </p>
@@ -15,10 +15,6 @@
   <a href="https://pypi.org/project/miu-db/"><img src="https://img.shields.io/pypi/v/miu-db.svg" alt="PyPI"></a>
   <img src="https://img.shields.io/badge/python-3.10+-blue.svg" alt="Python">
   <img src="https://img.shields.io/badge/license-MIT-green.svg" alt="License">
-</p>
-
-<p align="center">
-  <img src="assets/hero.png" alt="miu-db terminal database interface" width="860">
 </p>
 
 `miu-db` is part of the `miumono` umbrella: small, focused terminal-native
@@ -122,7 +118,7 @@ Flight SQL, Impala, SurrealDB, osquery, and more.
 
 This is a brand-new `miu-db` app, not a legacy config alias.
 
-- config: `~/.config/miu-db`
+- config: `~/.config/miu/db`
 - override: `MIU_DB_CONFIG_DIR`
 - env vars: `MIU_DB_*`
 - keyring service: `miu-db`
@@ -131,6 +127,10 @@ This is a brand-new `miu-db` app, not a legacy config alias.
 miu-db config edit
 miu-db config show-keymap
 ```
+
+On first run, `miu-db` copies missing files from `~/.config/sqlit` into
+`~/.config/miu/db` so existing saved connections keep working. Existing files
+in the new location are never overwritten.
 
 ## Develop
 
@@ -150,7 +150,7 @@ uv run python -m build
 Release tags use miumono component SemVer:
 
 ```bash
-miu-db-v0.1.3
+miu-db-v0.1.4
 ```
 
 ## License

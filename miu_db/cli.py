@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""miu-db - A terminal UI for SQL databases."""
+"""miu-db - Fast terminal SQL across your databases."""
 
 from __future__ import annotations
 
@@ -336,7 +336,7 @@ def main() -> int:
     log_startup_step("cli_parser_start")
     parser = argparse.ArgumentParser(
         prog="miu-db",
-        description="A terminal UI for SQL databases",
+        description="Fast terminal SQL across your databases",
         epilog="Connect via URL: miu-db mysql://user:pass@host/db, miu-db sqlite:///path/to/db.sqlite",
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
@@ -446,7 +446,7 @@ def main() -> int:
     parser.add_argument(
         "--profile-startup-imports",
         action="store_true",
-        help="Log per-module import timings to .miu-db/startup-imports.txt.",
+        help="Log per-module import timings to the miu-db config directory.",
     )
     parser.add_argument(
         "--profile-startup-imports-file",

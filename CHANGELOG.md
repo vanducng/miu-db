@@ -2,6 +2,23 @@
 
 All notable user-facing changes to miu-db.
 
+## 0.1.4 - 2026-05-27
+
+### Changed
+
+- Moved the default config directory to `~/.config/miu/db` for the miumono
+  umbrella layout.
+- Brightened the logo and removed the README hero image.
+- Replaced relative README image paths with a GitHub raw URL so PyPI can render
+  the logo.
+- Shortened the product description to "Fast terminal SQL across your
+  databases."
+
+### Added
+
+- Copies missing files from `~/.config/sqlit` into `~/.config/miu/db` on first
+  run without overwriting existing `miu-db` config files.
+
 ## 0.1.3 - 2026-05-27
 
 ### Changed
