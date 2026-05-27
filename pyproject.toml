@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "miu-db"
-description = "A miumono database TUI. Vim keys, 25+ adapters, zero config."
+description = "Miumono database TUI for fast terminal SQL."
 readme = "README.md"
 license = "MIT"
 requires-python = ">=3.10"

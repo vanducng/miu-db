@@ -59,7 +59,10 @@ assets/*
 !assets/favorites/
 assets/favorites/*
 !assets/favorites/logo.png
+!assets/hero.png
+!assets/hero.svg
 !assets/logo.png
+!assets/logo.svg
 .worktrees/
 .obsidian/
 

@@ -2,7 +2,7 @@
 pkgname=miu-db
 pkgver=0.1.0
 pkgrel=1
-pkgdesc="A miumono database TUI. Vim keys, 25+ adapters, zero config."
+pkgdesc="Miumono database TUI for fast terminal SQL."
 arch=('any')
 url="https://github.com/vanducng/miu-db"
 license=('MIT')
