@@ -7,6 +7,7 @@ from unittest.mock import MagicMock
 from miu_db.domains.connections.app.credentials import (
     CredentialsStoreError,
     KEYRING_SERVICE_NAME,
+    LEGACY_KEYRING_SERVICE_NAMES,
     KeyringCredentialsService,
 )
 
@@ -52,6 +53,28 @@ class TestKeyringCredentialsService:
         assert result == "stored_password"
         mock_keyring.get_password.assert_called_once_with(
             KEYRING_SERVICE_NAME, "test_conn:db"
+        )
+
+    def test_get_password_migrates_from_legacy_keyring_service(self) -> None:
+        """Test missing miu-db keyring entries are copied from legacy sqlit."""
+        service, mock_keyring = self._create_service_with_mock_keyring()
+        mock_keyring.get_password.side_effect = [None, "legacy_password"]
+
+        result = service.get_password("test_conn")
+
+        assert result == "legacy_password"
+        assert mock_keyring.get_password.call_args_list[0].args == (
+            KEYRING_SERVICE_NAME,
+            "test_conn:db",
+        )
+        assert mock_keyring.get_password.call_args_list[1].args == (
+            LEGACY_KEYRING_SERVICE_NAMES[0],
+            "test_conn:db",
+        )
+        mock_keyring.set_password.assert_called_once_with(
+            KEYRING_SERVICE_NAME,
+            "test_conn:db",
+            "legacy_password",
         )
 
     def test_delete_password(self) -> None:

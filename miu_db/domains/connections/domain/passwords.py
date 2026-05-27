@@ -6,6 +6,10 @@ from miu_db.domains.connections.domain.config import ConnectionConfig
 from miu_db.domains.connections.providers.metadata import is_file_based, requires_auth
 
 
+_PASSWORDLESS_AUTH_TYPES = {"ad_default", "ad_integrated", "windows"}
+_SNOWFLAKE_PASSWORD_AUTHENTICATORS = {"default", ""}
+
+
 def needs_db_password(config: ConnectionConfig) -> bool:
     """Return True if the database password should be prompted."""
     if is_file_based(config.db_type):
@@ -15,8 +19,13 @@ def needs_db_password(config: ConnectionConfig) -> bool:
         return False
 
     auth_type = config.get_option("auth_type")
-    if auth_type in ("ad_default", "ad_integrated", "windows"):
+    if auth_type in _PASSWORDLESS_AUTH_TYPES:
         return False
+
+    if config.db_type == "snowflake":
+        authenticator = str(config.get_option("authenticator") or "default")
+        if authenticator not in _SNOWFLAKE_PASSWORD_AUTHENTICATORS:
+            return False
 
     endpoint = config.tcp_endpoint
     if not endpoint or endpoint.password is not None:

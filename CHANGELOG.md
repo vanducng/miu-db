@@ -2,6 +2,15 @@
 
 All notable user-facing changes to miu-db.
 
+## 0.1.5 - 2026-05-27
+
+### Fixed
+
+- Snowflake key-pair, browser SSO, OAuth, and PAT connections no longer prompt
+  for a database password.
+- Keyring lookups now lazily copy missing credentials from the old `sqlit`
+  service into the `miu-db` service.
+
 ## 0.1.4 - 2026-05-27
 
 ### Changed

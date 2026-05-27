@@ -155,6 +155,42 @@ class TestNeedsDbPassword:
         )
         assert needs_db_password(config)
 
+    def test_snowflake_default_auth_with_none_password_needs_prompt(self) -> None:
+        config = ConnectionConfig(
+            name="snowflake-default",
+            db_type="snowflake",
+            server="xy12345.us-east-2.aws",
+            username="user",
+            password=None,
+            options={"authenticator": "default"},
+        )
+        assert needs_db_password(config)
+
+    def test_snowflake_jwt_auth_does_not_need_db_password_prompt(self) -> None:
+        config = ConnectionConfig(
+            name="snowflake-jwt",
+            db_type="snowflake",
+            server="xy12345.us-east-2.aws",
+            username="user",
+            password=None,
+            options={
+                "authenticator": "snowflake_jwt",
+                "private_key_file": "/Users/me/.ssh/snowflake.p8",
+            },
+        )
+        assert not needs_db_password(config)
+
+    def test_snowflake_externalbrowser_auth_does_not_need_db_password_prompt(self) -> None:
+        config = ConnectionConfig(
+            name="snowflake-sso",
+            db_type="snowflake",
+            server="xy12345.us-east-2.aws",
+            username="user",
+            password=None,
+            options={"authenticator": "externalbrowser"},
+        )
+        assert not needs_db_password(config)
+
 
 class TestNeedsSshPassword:
     """Test needs_ssh_password helper function."""

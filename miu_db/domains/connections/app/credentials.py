@@ -22,6 +22,7 @@ if TYPE_CHECKING:
 
 # Service name used for keyring storage
 KEYRING_SERVICE_NAME = "miu-db"
+LEGACY_KEYRING_SERVICE_NAMES = ("sqlit",)
 
 # Settings key controlling whether plaintext credential storage is allowed.
 ALLOW_PLAINTEXT_CREDENTIALS_SETTING = "allow_plaintext_credentials"
@@ -259,12 +260,35 @@ class KeyringCredentialsService(CredentialsService):
             try:
                 keyring = self._get_keyring()
                 value = keyring.get_password(KEYRING_SERVICE_NAME, key)
-                return value if isinstance(value, str) else None
+                if isinstance(value, str):
+                    return value
+                legacy_value = self._get_legacy_password(key)
+                if isinstance(legacy_value, str):
+                    self._store_migrated_password(key, legacy_value)
+                    return legacy_value
+                return None
             except Exception:
                 if attempt >= retries:
                     return None
                 time.sleep(delay_seconds)
         return None
+
+    def _get_legacy_password(self, key: str) -> str | None:
+        keyring = self._get_keyring()
+        for service_name in LEGACY_KEYRING_SERVICE_NAMES:
+            try:
+                value = keyring.get_password(service_name, key)
+            except Exception:
+                continue
+            if isinstance(value, str):
+                return value
+        return None
+
+    def _store_migrated_password(self, key: str, password: str) -> None:
+        try:
+            self._get_keyring().set_password(KEYRING_SERVICE_NAME, key, password)
+        except Exception:
+            pass
 
     def _raise_keyring_error(self, *, connection_name: str, kind: str, action: str, reason: Exception) -> None:
         raise CredentialsStoreError(
