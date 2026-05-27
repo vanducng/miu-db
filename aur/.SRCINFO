@@ -1,6 +1,6 @@
 pkgbase = miu-db
-	pkgdesc = A fast, modal TUI for SQL databases. Vim keys, 25+ adapters, zero config.
-	pkgver = 1.2.1.3
+	pkgdesc = A miumono database TUI. Vim keys, 25+ adapters, zero config.
+	pkgver = 0.1.0
 	pkgrel = 1
 	url = https://github.com/vanducng/miu-db
 	arch = any
@@ -25,10 +25,7 @@ pkgbase = miu-db
 	optdepends = python-snowflake-connector-python: Snowflake support
 	optdepends = python-paramiko: SSH tunnel support
 	optdepends = python-sshtunnel: SSH tunnel support
-	provides = python-sqlit-tui
-	conflicts = python-sqlit-tui
-	replaces = python-sqlit-tui
-	source = https://files.pythonhosted.org/packages/source/m/miu-db/miu_db-1.2.1.3.tar.gz
-	sha256sums = 746eed41e776810efe71e731df753a0b6fac420f67d21da77cf0a7e51122c9d1
+	source = https://files.pythonhosted.org/packages/source/m/miu-db/miu_db-0.1.0.tar.gz
+	sha256sums = SKIP
 
 pkgname = miu-db

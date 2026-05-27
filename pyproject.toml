@@ -4,15 +4,15 @@ build-backend = "hatchling.build"
 
 [project]
 name = "miu-db"
-description = "A fast, modal TUI for SQL databases. Vim keys, 25+ adapters, zero config."
+description = "A miumono database TUI. Vim keys, 25+ adapters, zero config."
 readme = "README.md"
 license = "MIT"
 requires-python = ">=3.10"
 authors = [
     { name = "Duc Nguyen", email = "me@vanducng.dev" },
-    { name = "Peter (upstream sqlit author)" },
+    { name = "Peter Adams" },
 ]
-keywords = ["sql", "tui", "textual", "database", "terminal", "postgresql", "mysql", "sqlite", "bigquery", "snowflake", "miu-db"]
+keywords = ["sql", "tui", "textual", "database", "terminal", "postgresql", "mysql", "sqlite", "bigquery", "snowflake", "miu-db", "miumono"]
 classifiers = [
     "Development Status :: 4 - Beta",
     "Environment :: Console",
@@ -120,6 +120,7 @@ dev = [
 
 [tool.hatch.version]
 source = "vcs"
+tag-pattern = "^miu-db-v(?P<version>[0-9]+\\.[0-9]+\\.[0-9]+(?:[.-][0-9A-Za-z.-]+)?)$"
 
 [tool.hatch.build.hooks.vcs]
 version-file = "miu_db/_version.py"

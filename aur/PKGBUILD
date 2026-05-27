@@ -1,15 +1,11 @@
 # Maintainer: Duc Nguyen <me@vanducng.dev>
-# Original sqlit maintainer: Peter <peter.w.adams96@gmail.com>
 pkgname=miu-db
-pkgver=1.2.1.3
+pkgver=0.1.0
 pkgrel=1
-pkgdesc="A fast, modal TUI for SQL databases. Vim keys, 25+ adapters, zero config."
+pkgdesc="A miumono database TUI. Vim keys, 25+ adapters, zero config."
 arch=('any')
 url="https://github.com/vanducng/miu-db"
 license=('MIT')
-provides=('python-sqlit-tui' 'sqlit')
-conflicts=('python-sqlit-tui' 'sqlit')
-replaces=('python-sqlit-tui' 'sqlit')
 depends=(
     'python'
     'python-textual'
@@ -32,7 +28,7 @@ optdepends=(
 )
 makedepends=('python-build' 'python-installer' 'python-hatchling' 'python-hatch-vcs')
 source=("https://files.pythonhosted.org/packages/source/m/miu-db/miu_db-${pkgver}.tar.gz")
-sha256sums=('SKIP')  # regenerate via `updpkgsums` after the first miu-db sdist is on PyPI
+sha256sums=('SKIP')  # release workflow replaces this with the built sdist checksum
 
 build() {
     cd "miu_db-${pkgver}"
