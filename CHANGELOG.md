@@ -2,6 +2,18 @@
 
 All notable user-facing changes to miu-db.
 
+## 0.1.2 - 2026-05-27
+
+### Changed
+
+- Tightened the README around the miumono brand, quick install, editable source
+  install, connection setup, key bindings, config, and release tags.
+- Removed the AUR release track so releases match the miumono GitHub/PyPI path
+  and do not require `AUR_SSH_PRIVATE_KEY`.
+- Refactored CI toward the miumono shape: uv setup, concurrency cancellation,
+  named package/test/security jobs, and a single `CI Success` aggregate gate.
+- Added the miumono-style Conventional Commit PR title check.
+
 ## 0.1.1 - 2026-05-27
 
 ### Changed
