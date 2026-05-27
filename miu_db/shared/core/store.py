@@ -4,9 +4,14 @@ from __future__ import annotations
 
 import json
 import os
+import shutil
 import tempfile
 from pathlib import Path
 from typing import Any
+
+
+CONFIG_HOME_SUBPATH = Path("miu") / "db"
+LEGACY_CONFIG_DIR_NAME = "sqlit"
 
 
 def _resolve_config_dir() -> Path:
@@ -14,7 +19,10 @@ def _resolve_config_dir() -> Path:
 
     Precedence:
       1. $MIU_DB_CONFIG_DIR if set.
-      2. $XDG_CONFIG_HOME/miu-db (falling back to ~/.config/miu-db).
+      2. $XDG_CONFIG_HOME/miu/db (falling back to ~/.config/miu/db).
+
+    When using the default location, copy any missing files from the old
+    sqlit config directory once so existing saved connections are available.
     """
     env_override = os.environ.get("MIU_DB_CONFIG_DIR")
     if env_override:
@@ -22,7 +30,38 @@ def _resolve_config_dir() -> Path:
 
     xdg_home = os.environ.get("XDG_CONFIG_HOME")
     base = Path(xdg_home).expanduser() if xdg_home else Path.home() / ".config"
-    return base / "miu-db"
+    config_dir = base / CONFIG_HOME_SUBPATH
+    _migrate_legacy_config_dir(base / LEGACY_CONFIG_DIR_NAME, config_dir)
+    return config_dir
+
+
+def _migrate_legacy_config_dir(source: Path, destination: Path) -> None:
+    """Copy missing legacy sqlit config files into the miu/db config directory."""
+    if not source.is_dir():
+        return
+
+    for source_path in source.rglob("*"):
+        if not source_path.is_file():
+            continue
+        try:
+            relative_path = source_path.relative_to(source)
+        except ValueError:
+            continue
+        destination_path = destination / relative_path
+        if destination_path.exists():
+            continue
+        try:
+            destination_path.parent.mkdir(parents=True, exist_ok=True)
+            os.chmod(destination_path.parent, 0o700)
+            shutil.copy2(source_path, destination_path)
+            os.chmod(destination_path, 0o600)
+        except OSError:
+            continue
+
+    try:
+        os.chmod(destination, 0o700)
+    except OSError:
+        pass
 
 
 # Shared config directory. Resolved once at import time so module-level

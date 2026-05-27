@@ -267,7 +267,7 @@ class TestMSSQLAdapterAzureAdPreflight:
     @pytest.fixture(autouse=True)
     def _empty_token_cache(self):
         """Patch out the token cache so tests don't depend on the user's
-        ~/.config/miu-db/azure_sql_token.json file."""
+        ~/.config/miu/db/azure_sql_token.json file."""
         from miu_db.domains.connections.providers.mssql import token_cache
 
         with patch.object(token_cache, "load", return_value=None), \

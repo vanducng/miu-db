@@ -1,5 +1,5 @@
 {
-  "_note": "Copy to .miu-db/settings.json (gitignored) and run: miu-db --settings .miu-db/settings.json",
+  "_note": "Copy to ~/.config/miu/db/settings.json or run: miu-db --settings ./settings.json",
   "theme": "tokyo-night",
   "custom_themes": [],
   "expanded_nodes": [],
