@@ -1,0 +1,15 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "miudb.protocol-events-v1",
+  "type": "object",
+  "required": ["event", "call_id"],
+  "properties": {
+    "event": {"type": "string"},
+    "call_id": {"type": "string"},
+    "seq": {"type": "integer"},
+    "columns": {"type": "array"},
+    "rows": {"type": "array"},
+    "error": {"type": "object"}
+  },
+  "additionalProperties": true
+}

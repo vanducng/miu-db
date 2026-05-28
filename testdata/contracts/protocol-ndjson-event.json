@@ -1,0 +1,6 @@
+{
+  "type": "event",
+  "event": "call.done",
+  "call_id": "call_1",
+  "seq": 1
+}

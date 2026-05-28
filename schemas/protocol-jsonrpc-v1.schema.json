@@ -1,0 +1,15 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "miudb.protocol-jsonrpc-v1",
+  "type": "object",
+  "required": ["jsonrpc"],
+  "properties": {
+    "jsonrpc": {"const": "2.0"},
+    "id": {},
+    "method": {"type": "string"},
+    "params": {},
+    "result": {},
+    "error": {"type": "object"}
+  },
+  "additionalProperties": false
+}

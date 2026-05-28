@@ -1,0 +1,19 @@
+{
+  "ok": true,
+  "api_version": "miudb.cli/v1",
+  "kind": "query.result",
+  "command": "query run",
+  "request_id": "req_example",
+  "summary": {"connection": "agent-deck", "db_type": "sqlite"},
+  "data": {
+    "connection": "agent-deck",
+    "result": {
+      "columns": [{"name": "one", "type": "INTEGER"}],
+      "rows": [[1]],
+      "truncated": false
+    }
+  },
+  "page": {"limit": 100},
+  "artifacts": [],
+  "warnings": []
+}
