@@ -25,11 +25,16 @@ import (
 )
 
 type options struct {
-	output          string
-	configDir       string
-	credentialsPath string
-	limit           int
-	timeout         time.Duration
+	output           string
+	connectionSource string
+	configDir        string
+	connectionsPath  string
+	credentialsPath  string
+	secretSources    string
+	keyringService   string
+	gopassPrefix     string
+	limit            int
+	timeout          time.Duration
 }
 
 type commandInfo struct {
@@ -42,7 +47,7 @@ type commandInfo struct {
 	Examples    []string `json:"examples"`
 }
 
-var version = "v0.2.0-go.4-dev"
+var version = "v0.2.0-go.5-dev"
 
 func Execute(args []string) error {
 	opts := &options{output: "json", limit: 100, timeout: 30 * time.Second}
@@ -63,8 +68,14 @@ func rootCommand(opts *options) *cobra.Command {
 		Short: "Fast local database CLI for agents and Neovim",
 	}
 	root.PersistentFlags().StringVar(&opts.output, "output", "json", "Output format: json")
-	root.PersistentFlags().StringVar(&opts.configDir, "config-dir", config.DefaultConfigDir(), "Config directory")
-	root.PersistentFlags().StringVar(&opts.credentialsPath, "credentials-export", "", "Credentials export path")
+	root.PersistentFlags().StringVar(&opts.connectionSource, "connection-source", config.SourceAuto, "Connection source: auto or file")
+	root.PersistentFlags().StringVar(&opts.configDir, "config-dir", config.DefaultConfigDir(), "Config directory for file source")
+	root.PersistentFlags().StringVar(&opts.connectionsPath, "connections-file", "", "Connections JSON file")
+	root.PersistentFlags().StringVar(&opts.credentialsPath, "credentials-file", "", "Credential JSON file")
+	root.PersistentFlags().StringVar(&opts.credentialsPath, "credentials-export", "", "Deprecated alias for --credentials-file")
+	root.PersistentFlags().StringVar(&opts.secretSources, "secret-source", "", "Comma-separated secret sources: file,keyring,gopass,none")
+	root.PersistentFlags().StringVar(&opts.keyringService, "keyring-service", "", "OS keyring service name; defaults to miudb")
+	root.PersistentFlags().StringVar(&opts.gopassPrefix, "gopass-prefix", "miudb", "gopass path prefix")
 	root.PersistentFlags().IntVar(&opts.limit, "limit", 100, "Maximum rows returned inline")
 	root.PersistentFlags().DurationVar(&opts.timeout, "timeout", 30*time.Second, "Connection/query timeout")
 	root.AddCommand(versionCommand())
@@ -138,9 +149,10 @@ func connectionsCommand(opts *options) *cobra.Command {
 				items = append(items, config.RedactedConnection(conn))
 				byType[conn.DBType]++
 			}
-			return writeSuccess(cmd.OutOrStdout(), "connections list", "connection.list", map[string]any{"connections": items}, map[string]any{"count": len(items), "by_type": byType})
+			return writeSuccess(cmd.OutOrStdout(), "connections list", "connection.list", map[string]any{"connections": items}, map[string]any{"count": len(items), "by_type": byType, "store": store.Info()})
 		},
 	})
+	cmd.AddCommand(connectionAddCommand(opts))
 	cmd.AddCommand(&cobra.Command{
 		Use:   "test <name>",
 		Short: "Test a connection",
@@ -150,7 +162,10 @@ func connectionsCommand(opts *options) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			conn, ok := store.Find(args[0])
+			conn, ok, err := store.FindResolved(args[0])
+			if err != nil {
+				return err
+			}
 			if !ok {
 				return &CLIError{Code: "connection.not_found", Message: "connection not found", Exit: 2}
 			}
@@ -170,6 +185,83 @@ func connectionsCommand(opts *options) *cobra.Command {
 	})
 	cmd.AddCommand(connectionsSmokeCommand(opts))
 	return cmd
+}
+
+func connectionAddCommand(opts *options) *cobra.Command {
+	var conn config.Connection
+	var secretStore string
+	var tunnelEnabled bool
+	var sshHost, sshPort, sshUser, sshPassword, sshKeyPath, sshConfigAlias string
+	add := &cobra.Command{
+		Use:   "add",
+		Short: "Add a native miudb connection",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			if conn.Name == "" || conn.DBType == "" {
+				return &CLIError{Code: "connection.missing_input", Message: "name and db-type are required", Exit: 2}
+			}
+			if conn.Endpoint.Kind == "" {
+				if conn.Endpoint.Path != "" {
+					conn.Endpoint.Kind = "file"
+				} else {
+					conn.Endpoint.Kind = "tcp"
+				}
+			}
+			if tunnelEnabled || sshHost != "" || sshConfigAlias != "" {
+				conn.Tunnel = &config.Tunnel{
+					Enabled:     true,
+					Source:      "manual",
+					ConfigAlias: sshConfigAlias,
+					Host:        sshHost,
+					Port:        sshPort,
+					Username:    sshUser,
+					Password:    sshPassword,
+					KeyPath:     sshKeyPath,
+				}
+				if sshConfigAlias != "" {
+					conn.Tunnel.Source = "config"
+				}
+				if conn.Tunnel.Port == "" {
+					conn.Tunnel.Port = "22"
+				}
+				if conn.Tunnel.KeyPath != "" {
+					conn.Tunnel.AuthType = "key"
+				}
+				if conn.Tunnel.Password != "" {
+					conn.Tunnel.AuthType = "password"
+				}
+			}
+			store, err := loadStoreAllowMissing(opts)
+			if err != nil {
+				return err
+			}
+			saved, err := store.Add(conn, config.AddOptions{SecretStore: secretStore})
+			if err != nil {
+				return err
+			}
+			return writeSuccess(cmd.OutOrStdout(), "connections add", "connection.added", config.RedactedConnection(saved), map[string]any{"store": store.Info(), "sensitive_targets": config.SensitiveTargets(saved)})
+		},
+	}
+	add.Flags().StringVar(&conn.Name, "name", "", "Connection name")
+	add.Flags().StringVar(&conn.DBType, "db-type", "", "Database type")
+	add.Flags().StringVar(&conn.FolderPath, "folder", "", "Connection folder")
+	add.Flags().StringVar(&conn.ConnectionURL, "url", "", "Connection URL")
+	add.Flags().StringVar(&conn.Endpoint.Kind, "kind", "", "Endpoint kind: tcp or file")
+	add.Flags().StringVar(&conn.Endpoint.Host, "host", "", "Database host")
+	add.Flags().StringVar(&conn.Endpoint.Port, "port", "", "Database port")
+	add.Flags().StringVar(&conn.Endpoint.Database, "database", "", "Database name")
+	add.Flags().StringVar(&conn.Endpoint.Username, "username", "", "Database username")
+	add.Flags().StringVar(&conn.Endpoint.Password, "password", "", "Database password; stored outside connections.json by default")
+	add.Flags().StringVar(&conn.Endpoint.PasswordCommand, "password-command", "", "Command to resolve database password")
+	add.Flags().StringVar(&conn.Endpoint.Path, "path", "", "File path for SQLite-like databases")
+	add.Flags().StringVar(&secretStore, "secret-store", "keyring", "Secret storage for sensitive fields: keyring, file, inline, none")
+	add.Flags().BoolVar(&tunnelEnabled, "tunnel", false, "Enable SSH tunnel")
+	add.Flags().StringVar(&sshHost, "ssh-host", "", "SSH tunnel host")
+	add.Flags().StringVar(&sshPort, "ssh-port", "22", "SSH tunnel port")
+	add.Flags().StringVar(&sshUser, "ssh-username", "", "SSH tunnel username")
+	add.Flags().StringVar(&sshPassword, "ssh-password", "", "SSH password; stored outside connections.json by default")
+	add.Flags().StringVar(&sshKeyPath, "ssh-key-path", "", "SSH private key path")
+	add.Flags().StringVar(&sshConfigAlias, "ssh-config-alias", "", "SSH config alias")
+	return add
 }
 
 func connectionsSmokeCommand(opts *options) *cobra.Command {
@@ -205,7 +297,12 @@ func connectionsSmokeCommand(opts *options) *cobra.Command {
 				go func() {
 					defer wg.Done()
 					for idx := range jobs {
-						results[idx] = runSmoke(cmd.Context(), reg, pageStore, conns[idx], sqlText, opts.limit, opts.timeout)
+						conn, err := store.Resolve(conns[idx])
+						if err != nil {
+							results[idx] = smokeResolveError(conns[idx], err)
+							continue
+						}
+						results[idx] = runSmoke(cmd.Context(), reg, pageStore, conn, sqlText, opts.limit, opts.timeout)
 					}
 				}()
 			}
@@ -303,8 +400,22 @@ func runSmoke(parent context.Context, reg *adapter.Registry, pageStore *result.P
 	return res
 }
 
+func smokeResolveError(conn config.Connection, err error) smokeResult {
+	info := errorInfo(err)
+	if errors.Is(err, context.DeadlineExceeded) {
+		info.Code = "secret.timeout"
+		info.Retryable = true
+		info.SafeToRetry = true
+	}
+	return smokeResult{
+		Name:   conn.Name,
+		DBType: conn.DBType,
+		Error:  &info,
+	}
+}
+
 func errorInfo(err error) ErrorInfo {
-	message := err.Error()
+	message := config.RedactString(err.Error())
 	lower := strings.ToLower(message)
 	info := ErrorInfo{Code: "internal.error", Message: message, Retryable: false}
 	var cliErr *CLIError
@@ -368,9 +479,9 @@ func errorInfo(err error) ErrorInfo {
 	}
 	if errors.As(err, &cliErr) {
 		info.Code = cliErr.Code
-		info.Message = cliErr.Message
-		info.Hint = cliErr.Hint
-		info.Details = cliErr.Details
+		info.Message = config.RedactString(cliErr.Message)
+		info.Hint = config.RedactString(cliErr.Hint)
+		info.Details = redactDetails(cliErr.Details)
 		info.Retryable = cliErr.Retry
 		info.SafeToRetry = cliErr.SafeRetry
 	}
@@ -391,7 +502,10 @@ func queryCommand(opts *options) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			conn, ok := store.Find(connectionName)
+			conn, ok, err := store.FindResolved(connectionName)
+			if err != nil {
+				return err
+			}
 			if !ok {
 				return &CLIError{Code: "connection.not_found", Message: "connection not found", Exit: 2}
 			}
@@ -451,7 +565,10 @@ func schemaCommand(opts *options) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			conn, ok := store.Find(connectionName)
+			conn, ok, err := store.FindResolved(connectionName)
+			if err != nil {
+				return err
+			}
 			if !ok {
 				return &CLIError{Code: "connection.not_found", Message: "connection not found", Exit: 2}
 			}
@@ -500,7 +617,29 @@ func serveCommand(opts *options) *cobra.Command {
 }
 
 func loadStore(opts *options) (*config.Store, error) {
-	return config.NewStore(opts.configDir, opts.credentialsPath)
+	return config.NewStoreWithOptions(config.StoreOptions{
+		Source:          opts.connectionSource,
+		ConfigDir:       opts.configDir,
+		ConnectionsPath: opts.connectionsPath,
+		CredentialsPath: opts.credentialsPath,
+		SecretSources:   splitCSV(opts.secretSources),
+		KeyringService:  opts.keyringService,
+		GopassPrefix:    opts.gopassPrefix,
+		SecretTimeout:   opts.timeout,
+	})
+}
+
+func loadStoreAllowMissing(opts *options) (*config.Store, error) {
+	return config.NewWritableStore(config.StoreOptions{
+		Source:          opts.connectionSource,
+		ConfigDir:       opts.configDir,
+		ConnectionsPath: opts.connectionsPath,
+		CredentialsPath: opts.credentialsPath,
+		SecretSources:   splitCSV(opts.secretSources),
+		KeyringService:  opts.keyringService,
+		GopassPrefix:    opts.gopassPrefix,
+		SecretTimeout:   opts.timeout,
+	})
 }
 
 func registry() *adapter.Registry {
@@ -518,6 +657,7 @@ func catalog() []commandInfo {
 		{Name: "commands", Summary: "List command catalog", Stability: "stable", Mutates: false, Examples: []string{"miudb commands --output json"}},
 		{Name: "describe", Summary: "Describe a command", Stability: "stable", Mutates: false, Examples: []string{"miudb describe query run --output json"}},
 		{Name: "connections list", Summary: "List saved connections with secrets redacted", Stability: "stable", Mutates: false, Examples: []string{"miudb connections list --output json"}},
+		{Name: "connections add", Summary: "Add a native connection and store sensitive fields safely", Stability: "experimental", Mutates: true, SideEffects: []string{"writes_connections_file", "may_write_keyring", "may_write_credentials_file"}, Examples: []string{"miudb connections add --name local --db-type sqlite --path ./app.db --output json"}},
 		{Name: "connections test", Summary: "Test one connection", Stability: "experimental", Mutates: false, SideEffects: []string{"opens_connection", "may_create_tunnel"}},
 		{Name: "connections smoke", Summary: "Run a bounded smoke query across saved connections", Stability: "experimental", Mutates: false, SideEffects: []string{"opens_connections", "may_create_tunnels"}, Examples: []string{"miudb connections smoke --timeout 12s --concurrency 4 --output json"}},
 		{Name: "query run", Summary: "Run SQL against a saved connection", Stability: "experimental", Mutates: false, SideEffects: []string{"opens_connection", "may_create_tunnel", "may_write_page_store"}},
@@ -535,6 +675,21 @@ func commandPath(args []string) string {
 		args = args[:2]
 	}
 	return strings.Join(args, " ")
+}
+
+func splitCSV(value string) []string {
+	if strings.TrimSpace(value) == "" {
+		return nil
+	}
+	parts := strings.Split(value, ",")
+	out := []string{}
+	for _, part := range parts {
+		part = strings.TrimSpace(part)
+		if part != "" {
+			out = append(out, part)
+		}
+	}
+	return out
 }
 
 func init() {

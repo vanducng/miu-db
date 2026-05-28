@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"io"
 	"time"
+
+	"github.com/vanducng/miu-db/internal/config"
 )
 
 const apiVersion = "miudb.cli/v1"
@@ -81,15 +83,15 @@ func writeSuccess(w io.Writer, command, kind string, data any, summary map[strin
 func writeError(w io.Writer, command string, err error) error {
 	info := ErrorInfo{
 		Code:      "internal.error",
-		Message:   err.Error(),
+		Message:   config.RedactString(err.Error()),
 		Retryable: false,
 	}
 	var cliErr *CLIError
 	if errors.As(err, &cliErr) {
 		info.Code = cliErr.Code
-		info.Message = cliErr.Message
-		info.Hint = cliErr.Hint
-		info.Details = cliErr.Details
+		info.Message = config.RedactString(cliErr.Message)
+		info.Hint = config.RedactString(cliErr.Hint)
+		info.Details = redactDetails(cliErr.Details)
 		info.Retryable = cliErr.Retry
 		info.SafeToRetry = cliErr.SafeRetry
 	}
@@ -101,6 +103,22 @@ func writeError(w io.Writer, command string, err error) error {
 		Artifacts: []any{},
 		Warnings:  []any{},
 	})
+}
+
+func redactDetails(details map[string]any) map[string]any {
+	if len(details) == 0 {
+		return details
+	}
+	out := make(map[string]any, len(details))
+	for key, value := range details {
+		switch typed := value.(type) {
+		case string:
+			out[key] = config.RedactString(typed)
+		default:
+			out[key] = value
+		}
+	}
+	return out
 }
 
 func ExitCode(err error) int {

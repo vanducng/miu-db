@@ -55,7 +55,10 @@ func (s *Server) handle(ctx context.Context, req Request) (any, error) {
 		name, _ := req.Params["connection"].(string)
 		sqlText, _ := req.Params["sql"].(string)
 		limit := intFromParam(req.Params["limit"], 100)
-		conn, ok := s.Store.Find(name)
+		conn, ok, err := s.Store.FindResolved(name)
+		if err != nil {
+			return nil, err
+		}
 		if !ok {
 			return nil, fmt.Errorf("connection %q not found", name)
 		}
@@ -75,7 +78,7 @@ func (s *Server) response(id any, result any, err error) Response {
 		resp.JSONRPC = "2.0"
 	}
 	if err != nil {
-		resp.Error = &ErrorReply{Code: -32000, Message: err.Error()}
+		resp.Error = &ErrorReply{Code: -32000, Message: config.RedactString(err.Error())}
 		return resp
 	}
 	resp.Result = result

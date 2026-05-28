@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	_ "modernc.org/sqlite"
@@ -55,7 +56,7 @@ func TestSQLiteQueryPath(t *testing.T) {
 
 func TestLegacyConfigLoadRedactsCredentials(t *testing.T) {
 	dir := t.TempDir()
-	if err := os.WriteFile(filepath.Join(dir, "connections.json"), []byte(`{"version":2,"connections":[{"name":"x","db_type":"sqlite","endpoint":{"kind":"file","path":"/tmp/x.db"},"tunnel":{"enabled":false}}]}`), 0o600); err != nil {
+	if err := os.WriteFile(filepath.Join(dir, "connections.json"), []byte(`{"version":2,"connections":[{"name":"x","db_type":"postgresql","endpoint":{"kind":"tcp","host":"localhost","port":"5432","database":"x","username":"x"},"tunnel":{"enabled":false}}]}`), 0o600); err != nil {
 		t.Fatal(err)
 	}
 	if err := os.WriteFile(filepath.Join(dir, "credentials-export.json"), []byte(`{"entries":[{"connection":"x","kind":"db","password":"secret"}]}`), 0o600); err != nil {
@@ -79,5 +80,63 @@ func TestLegacyConfigLoadRedactsCredentials(t *testing.T) {
 	}
 	if endpoint["has_password"] != true {
 		t.Fatal("has_password flag missing")
+	}
+}
+
+func TestConnectionAddStoresSensitiveFieldsOutsideConnectionFile(t *testing.T) {
+	dir := t.TempDir()
+	store, err := config.NewWritableStore(config.StoreOptions{
+		Source:        config.SourceFile,
+		ConfigDir:     dir,
+		SecretSources: []string{"file"},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	saved, err := store.Add(config.Connection{
+		Name:   "pg",
+		DBType: "postgresql",
+		Endpoint: config.Endpoint{
+			Kind:     "tcp",
+			Host:     "localhost",
+			Port:     "5432",
+			Database: "app",
+			Username: "app",
+			Password: "supersecret",
+		},
+	}, config.AddOptions{SecretStore: "file"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if saved.Endpoint.Password != "" {
+		t.Fatal("password should not be persisted inline")
+	}
+	if len(config.SecretRefsFor(saved, "db")) != 1 {
+		t.Fatal("expected database secret ref")
+	}
+	raw, err := os.ReadFile(filepath.Join(dir, "connections.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(string(raw), "supersecret") {
+		t.Fatal("connection file leaked password")
+	}
+	creds, err := config.LoadCredentialFile(filepath.Join(dir, "credentials.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if creds["pg:db"] != "supersecret" {
+		t.Fatal("credential file missing password")
+	}
+	if !strings.Contains(strings.Join(store.Info().SecretSources, ","), "file") {
+		t.Fatal("store info should include file secret source after file secret add")
+	}
+}
+
+func TestRedactStringMasksSecrets(t *testing.T) {
+	input := "postgres://app:supersecret@localhost/app password=hunter2 token=abc"
+	got := config.RedactString(input)
+	if strings.Contains(got, "supersecret") || strings.Contains(got, "hunter2") || strings.Contains(got, "abc") {
+		t.Fatalf("secret leaked after redaction: %s", got)
 	}
 }

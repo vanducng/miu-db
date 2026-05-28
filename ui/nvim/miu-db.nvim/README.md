@@ -2,6 +2,14 @@
 
 Minimal Neovim client for the Go `miudb` CLI.
 
+This UI lives under `ui/nvim` so future frontends can sit beside it:
+
+```text
+ui/nvim
+ui/tui
+ui/web
+```
+
 ```lua
 vim.g.miu_db_connection = "agent-deck"
 ```

@@ -1,11 +1,7 @@
 package config
 
 import (
-	"encoding/json"
-	"errors"
 	"fmt"
-	"os"
-	"path/filepath"
 	"strings"
 )
 
@@ -24,6 +20,7 @@ type Connection struct {
 	Options       map[string]any    `json:"options,omitempty"`
 	Endpoint      Endpoint          `json:"endpoint"`
 	Tunnel        *Tunnel           `json:"tunnel,omitempty"`
+	Secrets       []SecretRef       `json:"secrets,omitempty"`
 }
 
 type Endpoint struct {
@@ -48,87 +45,14 @@ type Tunnel struct {
 	Password        string `json:"password,omitempty"`
 	PasswordCommand string `json:"password_command,omitempty"`
 	KeyPath         string `json:"key_path,omitempty"`
+	SSHKeyPath      string `json:"ssh_key_path,omitempty"`
 }
 
-type Store struct {
-	ConfigDir       string
-	CredentialsPath string
-	root            Root
-	credentials     map[string]string
-}
-
-func DefaultConfigDir() string {
-	if v := os.Getenv("MIU_DB_CONFIG_DIR"); v != "" {
-		return v
-	}
-	home, err := os.UserHomeDir()
-	if err != nil {
-		return "."
-	}
-	return filepath.Join(home, ".config", "miu", "db")
-}
-
-func NewStore(configDir, credentialsPath string) (*Store, error) {
-	if configDir == "" {
-		configDir = DefaultConfigDir()
-	}
-	if credentialsPath == "" {
-		credentialsPath = filepath.Join(configDir, "credentials-export.json")
-	}
-	store := &Store{ConfigDir: configDir, CredentialsPath: credentialsPath}
-	if err := store.load(); err != nil {
-		return nil, err
-	}
-	return store, nil
-}
-
-func (s *Store) load() error {
-	path := filepath.Join(s.ConfigDir, "connections.json")
-	data, err := os.ReadFile(path)
-	if err != nil {
-		return fmt.Errorf("read connections: %w", err)
-	}
-	if err := json.Unmarshal(data, &s.root); err != nil {
-		return fmt.Errorf("parse connections: %w", err)
-	}
-	credentials, err := LoadCredentialExport(s.CredentialsPath)
-	if err != nil && !errors.Is(err, os.ErrNotExist) {
-		return err
-	}
-	s.credentials = credentials
-	s.applyCredentials()
-	return nil
-}
-
-func (s *Store) Connections() []Connection {
-	out := make([]Connection, len(s.root.Connections))
-	copy(out, s.root.Connections)
-	return out
-}
-
-func (s *Store) Find(name string) (Connection, bool) {
-	for _, conn := range s.root.Connections {
-		if conn.Name == name {
-			return conn, true
-		}
-	}
-	return Connection{}, false
-}
-
-func (s *Store) applyCredentials() {
-	for i := range s.root.Connections {
-		conn := &s.root.Connections[i]
-		if conn.Endpoint.Password == "" {
-			conn.Endpoint.Password = s.credentials[credentialKey(conn.Name, "db")]
-		}
-		if conn.Tunnel != nil && conn.Tunnel.Password == "" {
-			conn.Tunnel.Password = s.credentials[credentialKey(conn.Name, "ssh")]
-		}
-	}
-}
-
-func credentialKey(connection, kind string) string {
-	return connection + ":" + kind
+type SecretRef struct {
+	Target   string `json:"target"`
+	Kind     string `json:"kind,omitempty"`
+	Provider string `json:"provider"`
+	Ref      string `json:"ref"`
 }
 
 func RedactedConnection(conn Connection) map[string]any {
@@ -143,8 +67,16 @@ func RedactedConnection(conn Connection) map[string]any {
 	if conn.Endpoint.Password != "" {
 		endpoint["has_password"] = true
 	}
+	if len(SecretRefsFor(conn, "db")) > 0 {
+		endpoint["has_password"] = true
+		endpoint["secret_ref"] = true
+	}
 	tunnel := map[string]any{"enabled": false}
 	if conn.Tunnel != nil {
+		keyPath := conn.Tunnel.KeyPath
+		if keyPath == "" {
+			keyPath = conn.Tunnel.SSHKeyPath
+		}
 		tunnel = map[string]any{
 			"enabled":      conn.Tunnel.Enabled,
 			"source":       conn.Tunnel.Source,
@@ -153,10 +85,14 @@ func RedactedConnection(conn Connection) map[string]any {
 			"port":         conn.Tunnel.Port,
 			"username":     conn.Tunnel.Username,
 			"auth_type":    conn.Tunnel.AuthType,
-			"key_path":     conn.Tunnel.KeyPath,
+			"key_path":     keyPath,
 		}
 		if conn.Tunnel.Password != "" {
 			tunnel["has_password"] = true
+		}
+		if len(SecretRefsFor(conn, "ssh")) > 0 {
+			tunnel["has_password"] = true
+			tunnel["secret_ref"] = true
 		}
 	}
 	return map[string]any{
