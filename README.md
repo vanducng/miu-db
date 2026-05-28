@@ -4,7 +4,7 @@
 
 <h1 align="center">miudb</h1>
 
-<p align="center">Headless database CLI for agents, Neovim, and future terminal/web clients.</p>
+<p align="center">A headless database CLI for humans and agents.</p>
 
 `miudb` is the Go core for miu-db. It keeps the database layer focused on
 connections, credentials, tunnels, adapters, query execution, schema inspection,
@@ -35,7 +35,7 @@ miudb commands --output json
 The default native config lives under:
 
 ```text
-~/.config/miudb/connections.json
+~/.config/miu/db/connections.json
 ```
 
 Sensitive values are classified before persistence. New connections store
@@ -60,9 +60,12 @@ miudb query run --connection local-app --sql 'select 1 as one' --output json
 Supported secret stores for new connections:
 
 - `keyring`: OS Keychain/keyring service named `miudb` by default.
-- `file`: `~/.config/miudb/credentials.json` with mode `0600`.
+- `file`: `~/.config/miu/db/credentials.json` with mode `0600`.
 - `inline`: keep the value in the connection file.
 - `none`: discard the supplied secret and require another resolver later.
+
+If `credentials.json` is absent, `miudb` also reads an existing
+`credentials-export.json` in the same directory for migrated connections.
 
 Future secret providers can plug into the same `SecretRef` model, including
 1Password and Bitwarden.
@@ -84,13 +87,13 @@ SSH tunnel-backed connections are supported for TCP adapters.
 The Neovim scaffold lives in:
 
 ```text
-ui/nvim/miu-db.nvim
+ui/miu-db.nvim
 ```
 
 Future clients should follow the same boundary:
 
 ```text
-ui/nvim
+ui/miu-db.nvim
 ui/tui
 ui/web
 ```

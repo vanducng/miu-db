@@ -56,13 +56,15 @@ func SensitiveTargets(conn Connection) []string {
 	return targets
 }
 
-func buildSecretResolvers(opts StoreOptions, source string) ([]SecretResolver, []string, error) {
+func buildSecretResolvers(opts StoreOptions, source string) ([]SecretResolver, []string, string, error) {
 	names := normalizeSecretSources(opts.SecretSources, source)
 	resolvers := []SecretResolver{}
 	active := []string{}
+	credentialsPath := opts.CredentialsPath
 	for _, name := range names {
 		switch name {
 		case "file":
+			explicitPath := opts.CredentialsPath != ""
 			path := opts.CredentialsPath
 			if path == "" {
 				path = defaultCredentialPath(source, opts.ConfigDir)
@@ -70,25 +72,38 @@ func buildSecretResolvers(opts StoreOptions, source string) ([]SecretResolver, [
 			if path == "" {
 				continue
 			}
+			if credentialsPath == "" {
+				credentialsPath = path
+			}
 			items, err := LoadCredentialFile(expandHome(path))
 			if err != nil {
+				if errors.Is(err, os.ErrNotExist) && !explicitPath {
+					legacyPath := legacyCredentialExportPath(opts.ConfigDir)
+					legacyItems, legacyErr := LoadCredentialFile(expandHome(legacyPath))
+					if legacyErr == nil {
+						resolvers = append(resolvers, newStaticSecretResolver("file", legacyItems))
+						active = append(active, "file")
+						credentialsPath = legacyPath
+						continue
+					}
+					if !errors.Is(legacyErr, os.ErrNotExist) {
+						return nil, nil, "", legacyErr
+					}
+				}
 				if errors.Is(err, os.ErrNotExist) {
 					continue
 				}
-				return nil, nil, err
+				return nil, nil, "", err
 			}
 			resolvers = append(resolvers, newStaticSecretResolver("file", items))
 			active = append(active, "file")
-			if opts.CredentialsPath == "" {
-				opts.CredentialsPath = path
-			}
 		case "keyring":
 			resolver, err := newKeyringSecretResolver(opts.KeyringService)
 			if err != nil {
 				if len(opts.SecretSources) == 0 {
 					continue
 				}
-				return nil, nil, err
+				return nil, nil, "", err
 			}
 			resolvers = append(resolvers, resolver)
 			active = append(active, "keyring:"+opts.KeyringService)
@@ -98,10 +113,10 @@ func buildSecretResolvers(opts StoreOptions, source string) ([]SecretResolver, [
 		case "none":
 		case "":
 		default:
-			return nil, nil, fmt.Errorf("unknown secret source %q", name)
+			return nil, nil, "", fmt.Errorf("unknown secret source %q", name)
 		}
 	}
-	return resolvers, active, nil
+	return resolvers, active, credentialsPath, nil
 }
 
 func normalizeSecretSources(sources []string, connectionSource string) []string {
@@ -125,6 +140,13 @@ func defaultCredentialPath(source, configDir string) string {
 		configDir = DefaultConfigDir()
 	}
 	return filepath.Join(expandHome(configDir), "credentials.json")
+}
+
+func legacyCredentialExportPath(configDir string) string {
+	if configDir == "" {
+		configDir = DefaultConfigDir()
+	}
+	return filepath.Join(expandHome(configDir), "credentials-export.json")
 }
 
 type keyringSecretResolver struct {
