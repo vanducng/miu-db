@@ -40,7 +40,7 @@ is useful enough for real daily databases.
 - The core owns adapters, connection/session lifecycle, secrets, tunnel setup,
   query calls, workers, schema inspection, result paging, history, and export.
 - Frontends are clients. They should not import adapter internals directly.
-- Native config lives under `~/.config/miudb` by default. Sensitive fields are
+- Native config lives under `~/.config/miu/db` by default. Sensitive fields are
   classified before persistence and resolved through explicit `SecretRef`
   providers such as keyring, file, gopass, command, or env. New native
   connections default to the `miudb` OS Keychain/keyring service.
@@ -111,7 +111,7 @@ The spike is successful when this works in the `golang` worktree:
 - SQLite connection config can be created and tested.
 - `miu-db query --connection local --sql "select 1" --format json` returns
   structured output for agents.
-- A minimal Neovim client under `ui/nvim` can send SQL from a normal buffer and render results
+- A minimal Neovim client under `ui/miu-db.nvim` can send SQL from a normal buffer and render results
   into a result buffer.
 - Query calls have IDs and can emit started, rows/page, done, and error events.
 - The protocol shape already leaves room for cancellation and SSH tunnel-backed

@@ -32,8 +32,8 @@ miudb commands --output json
 By default `miudb` reads and writes native files under:
 
 ```text
-~/.config/miudb/connections.json
-~/.config/miudb/credentials.json
+~/.config/miu/db/connections.json
+~/.config/miu/db/credentials.json
 ```
 
 The connection file stores metadata. Sensitive fields are classified before
@@ -93,7 +93,7 @@ miudb connections smoke \
 ## Store Options
 
 ```bash
-miudb --config-dir ~/.config/miudb connections list --output json
+miudb --config-dir ~/.config/miu/db connections list --output json
 miudb --connections-file ./connections.json connections list --output json
 miudb --secret-source keyring,file,gopass connections test app-dev --output json
 ```
@@ -104,6 +104,9 @@ New connection secret stores:
 - `file`: local credential file with mode `0600`.
 - `inline`: leave the value in `connections.json`.
 - `none`: discard the supplied value.
+
+For migrated configs, `miudb` reads `credentials-export.json` from the same
+directory when `credentials.json` is absent.
 
 ## Local Checkout
 

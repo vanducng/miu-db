@@ -3,13 +3,14 @@
 This preview uses a native Go store by default:
 
 ```text
-~/.config/miudb/connections.json
-~/.config/miudb/credentials.json
+~/.config/miu/db/connections.json
+~/.config/miu/db/credentials.json
 ```
 
 New connections should be created through `miudb connections add` so sensitive
 fields are classified before write. The default secret store is the `miudb` OS
-Keychain/keyring service.
+Keychain/keyring service. Migrated configs can keep `credentials-export.json`
+in the same directory; `miudb` reads it when `credentials.json` is absent.
 
 ## Baseline
 

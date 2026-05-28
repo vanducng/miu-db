@@ -65,7 +65,7 @@ func DefaultConfigDir() string {
 	if err != nil {
 		return "."
 	}
-	return filepath.Join(home, ".config", "miudb")
+	return filepath.Join(home, ".config", "miu", "db")
 }
 
 func DefaultStoreOptions() StoreOptions {
@@ -110,9 +110,12 @@ func newStoreWithOptions(opts StoreOptions, allowMissing bool) (*Store, error) {
 		}
 		root = Root{Version: 1, Connections: []Connection{}}
 	}
-	resolvers, sources, err := buildSecretResolvers(opts, source)
+	resolvers, sources, credentialsPath, err := buildSecretResolvers(opts, source)
 	if err != nil {
 		return nil, err
+	}
+	if opts.CredentialsPath == "" {
+		opts.CredentialsPath = credentialsPath
 	}
 	store := &Store{
 		ConfigDir:       opts.ConfigDir,
