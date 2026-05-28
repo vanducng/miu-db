@@ -2,8 +2,6 @@ name: go-ci
 
 on:
   pull_request:
-  push:
-    branches: [golang]
 
 jobs:
   test:
