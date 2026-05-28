@@ -99,6 +99,9 @@ func versionCommand() *cobra.Command {
 }
 
 func versionString() string {
+	if version != "" && !strings.HasSuffix(version, "-dev") {
+		return version
+	}
 	info, ok := debug.ReadBuildInfo()
 	if ok && info.Main.Version != "" && info.Main.Version != "(devel)" {
 		return info.Main.Version
