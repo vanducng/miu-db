@@ -20,7 +20,7 @@ brew install vanducng/tap/miudb
 Or:
 
 ```bash
-go install github.com/vanducng/miu-db/cmd/miudb@v0.2.0-go.5
+go install github.com/vanducng/miu-db/cmd/miudb@v0.2.0-go.6
 ```
 
 Verify:
