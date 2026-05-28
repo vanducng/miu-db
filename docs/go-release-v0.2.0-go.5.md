@@ -17,7 +17,7 @@ brew install vanducng/tap/miudb
 ## Highlights
 
 - Keeps the branch clean Go-only for the `dev` target.
-- Adds a native `~/.config/miudb` connection store.
+- Adds a native `~/.config/miu/db` connection store.
 - Classifies sensitive fields before persistence and stores new passwords in
   the `miudb` OS Keychain/keyring service by default.
 - Supports SQLite, PostgreSQL, MySQL, Snowflake, and BigQuery daily-driver
@@ -27,7 +27,7 @@ brew install vanducng/tap/miudb
 - Adds `connections smoke` for agent-readable saved-connection health checks.
 - Adds JSON-RPC and NDJSON stdio protocol mode for future Neovim/TUI clients.
 - Moves the minimal Neovim file-buffer client scaffold under
-  `ui/nvim/miu-db.nvim`.
+  `ui/miu-db.nvim`.
 
 ## Verification
 

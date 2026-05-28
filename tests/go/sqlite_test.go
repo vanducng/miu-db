@@ -83,6 +83,41 @@ func TestLegacyConfigLoadRedactsCredentials(t *testing.T) {
 	}
 }
 
+func TestDefaultConfigDirUsesMiuProductPath(t *testing.T) {
+	dir := t.TempDir()
+	t.Setenv("HOME", dir)
+	t.Setenv("MIUDB_CONFIG_DIR", "")
+	t.Setenv("MIU_DB_CONFIG_DIR", "")
+	want := filepath.Join(dir, ".config", "miu", "db")
+	if got := config.DefaultConfigDir(); got != want {
+		t.Fatalf("DefaultConfigDir() = %q, want %q", got, want)
+	}
+}
+
+func TestLegacyCredentialExportFallback(t *testing.T) {
+	dir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(dir, "connections.json"), []byte(`{"version":2,"connections":[{"name":"x","db_type":"postgresql","endpoint":{"kind":"tcp","host":"localhost","port":"5432","database":"x","username":"x"},"tunnel":{"enabled":false}}]}`), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "credentials-export.json"), []byte(`{"entries":[{"connection":"x","kind":"db","password":"secret"}]}`), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	store, err := config.NewStore(dir, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	conn, ok := store.Find("x")
+	if !ok {
+		t.Fatal("missing connection")
+	}
+	if conn.Endpoint.Password != "secret" {
+		t.Fatal("legacy credential export fallback not applied")
+	}
+	if store.Info().CredentialsPath != filepath.Join(dir, "credentials-export.json") {
+		t.Fatal("store info should report legacy credential export path")
+	}
+}
+
 func TestConnectionAddStoresSensitiveFieldsOutsideConnectionFile(t *testing.T) {
 	dir := t.TempDir()
 	store, err := config.NewWritableStore(config.StoreOptions{
