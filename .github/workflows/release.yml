@@ -13,6 +13,8 @@ permissions:
 jobs:
   release:
     runs-on: ubuntu-latest
+    env:
+      HOMEBREW_TAP_GITHUB_TOKEN: ${{ secrets.HOMEBREW_TAP_GITHUB_TOKEN }}
     steps:
       - name: Checkout
         uses: actions/checkout@v6
@@ -26,10 +28,19 @@ jobs:
           cache-dependency-path: go.sum
 
       - name: Run GoReleaser
+        if: ${{ env.HOMEBREW_TAP_GITHUB_TOKEN != '' }}
         uses: goreleaser/goreleaser-action@v7
         with:
           version: v2.15.4
           args: release --clean
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          HOMEBREW_TAP_GITHUB_TOKEN: ${{ secrets.HOMEBREW_TAP_GITHUB_TOKEN }}
+
+      - name: Run GoReleaser without Homebrew tap
+        if: ${{ env.HOMEBREW_TAP_GITHUB_TOKEN == '' }}
+        uses: goreleaser/goreleaser-action@v7
+        with:
+          version: v2.15.4
+          args: release --clean --skip=homebrew
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

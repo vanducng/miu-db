@@ -42,7 +42,7 @@ type commandInfo struct {
 	Examples    []string `json:"examples"`
 }
 
-var version = "v0.2.0-go.3-dev"
+var version = "v0.2.0-go.4-dev"
 
 func Execute(args []string) error {
 	opts := &options{output: "json", limit: 100, timeout: 30 * time.Second}

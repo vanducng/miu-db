@@ -1,11 +1,11 @@
-# miudb Go Preview v0.2.0-go.3
+# miudb Go Preview v0.2.0-go.4
 
 This release publishes the first Go preview of miu-db as `miudb`.
 
 ## Install
 
 ```bash
-go install github.com/vanducng/miu-db/cmd/miudb@v0.2.0-go.3
+go install github.com/vanducng/miu-db/cmd/miudb@v0.2.0-go.4
 ```
 
 Or:
