@@ -1,0 +1,5 @@
+{
+  "columns": [{"name": "one", "type": "INTEGER"}],
+  "rows": [[1]],
+  "truncated": false
+}

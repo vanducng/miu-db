@@ -1,0 +1,64 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "miudb.connection-smoke-v1",
+  "type": "object",
+  "required": ["ok", "api_version", "kind", "command", "request_id", "summary", "data"],
+  "properties": {
+    "ok": {"type": "boolean"},
+    "api_version": {"type": "string"},
+    "kind": {"const": "connection.smoke"},
+    "command": {"const": "connections smoke"},
+    "request_id": {"type": "string"},
+    "summary": {
+      "type": "object",
+      "required": ["count", "passed", "failed", "timeout", "concurrency"],
+      "properties": {
+        "count": {"type": "integer", "minimum": 0},
+        "passed": {"type": "integer", "minimum": 0},
+        "failed": {"type": "integer", "minimum": 0},
+        "timeout": {"type": "string"},
+        "concurrency": {"type": "integer", "minimum": 1},
+        "by_type": {"type": "object"}
+      },
+      "additionalProperties": true
+    },
+    "data": {
+      "type": "object",
+      "required": ["results"],
+      "properties": {
+        "results": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["name", "db_type", "ok", "duration_ms"],
+            "properties": {
+              "name": {"type": "string"},
+              "db_type": {"type": "string"},
+              "ok": {"type": "boolean"},
+              "duration_ms": {"type": "integer", "minimum": 0},
+              "rows": {"type": "integer", "minimum": 0},
+              "error": {
+                "type": "object",
+                "required": ["code", "message", "retryable"],
+                "properties": {
+                  "code": {"type": "string"},
+                  "message": {"type": "string"},
+                  "hint": {"type": "string"},
+                  "retryable": {"type": "boolean"},
+                  "safe_to_retry": {"type": "boolean"},
+                  "details": {"type": "object"}
+                },
+                "additionalProperties": true
+              }
+            },
+            "additionalProperties": false
+          }
+        }
+      },
+      "additionalProperties": true
+    },
+    "artifacts": {"type": "array"},
+    "warnings": {"type": "array"}
+  },
+  "additionalProperties": true
+}
