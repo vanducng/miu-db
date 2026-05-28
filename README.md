@@ -8,6 +8,12 @@ Install the preview release:
 go install github.com/vanducng/miu-db/cmd/miudb@v0.2.0-go.2
 ```
 
+Or with Homebrew:
+
+```bash
+brew install vanducng/tap/miudb
+```
+
 Run locally from source:
 
 ```bash

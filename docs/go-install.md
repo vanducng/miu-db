@@ -21,6 +21,19 @@ miudb version --output json
 miudb commands --output json
 ```
 
+## Homebrew Install
+
+```bash
+brew install vanducng/tap/miudb
+```
+
+Upgrade later:
+
+```bash
+brew update
+brew upgrade miudb
+```
+
 ## Branch Install
 
 Before the preview tag is available, or when testing the latest branch:

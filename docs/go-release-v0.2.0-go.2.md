@@ -8,6 +8,12 @@ This release publishes the first Go preview of miu-db as `miudb`.
 go install github.com/vanducng/miu-db/cmd/miudb@v0.2.0-go.2
 ```
 
+Or:
+
+```bash
+brew install vanducng/tap/miudb
+```
+
 ## Highlights
 
 - Adds the `miudb` Go CLI without replacing the Python `miu-db` TUI.
