@@ -90,7 +90,7 @@ func versionString() string {
 	if ok && info.Main.Version != "" && info.Main.Version != "(devel)" {
 		return info.Main.Version
 	}
-	return "0.2.0-go.1-dev"
+	return "0.2.0-go.2-dev"
 }
 
 func commandsCommand(opts *options) *cobra.Command {

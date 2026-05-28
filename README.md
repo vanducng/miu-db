@@ -5,7 +5,7 @@ Go preview of miu-db as a headless database CLI for agents and Neovim.
 Install the preview release:
 
 ```bash
-go install github.com/vanducng/miu-db/cmd/miudb@v0.2.0-go.1
+go install github.com/vanducng/miu-db/cmd/miudb@v0.2.0-go.2
 ```
 
 Run locally from source:
