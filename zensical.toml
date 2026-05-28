@@ -6,6 +6,7 @@ site_author = "vanducng"
 copyright = "© 2026 vanducng. MIT License."
 docs_dir = "docs"
 site_dir = "site"
+extra_css = ["stylesheets/miudb.css"]
 
 [project.theme]
 variant = "modern"
