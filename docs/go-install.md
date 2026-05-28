@@ -5,7 +5,7 @@ The Go preview binary is named `miudb`. The Python TUI remains `miu-db`.
 ## Release Install
 
 ```bash
-go install github.com/vanducng/miu-db/cmd/miudb@v0.2.0-go.2
+go install github.com/vanducng/miu-db/cmd/miudb@v0.2.0-go.3
 ```
 
 Make sure your Go bin directory is on `PATH`:

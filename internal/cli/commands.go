@@ -42,6 +42,8 @@ type commandInfo struct {
 	Examples    []string `json:"examples"`
 }
 
+var version = "v0.2.0-go.3-dev"
+
 func Execute(args []string) error {
 	opts := &options{output: "json", limit: 100, timeout: 30 * time.Second}
 	root := rootCommand(opts)
@@ -90,7 +92,7 @@ func versionString() string {
 	if ok && info.Main.Version != "" && info.Main.Version != "(devel)" {
 		return info.Main.Version
 	}
-	return "0.2.0-go.2-dev"
+	return version
 }
 
 func commandsCommand(opts *options) *cobra.Command {
