@@ -70,7 +70,7 @@ brews:
       token: "{{ .Env.HOMEBREW_TAP_GITHUB_TOKEN }}"
     directory: Formula
     homepage: "https://github.com/vanducng/miu-db"
-    description: "A headless database CLI for humans and agents"
+    description: "Headless database CLI for humans and agents"
     license: MIT
     commit_author:
       name: goreleaserbot
