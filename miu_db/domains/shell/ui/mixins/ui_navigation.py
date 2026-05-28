@@ -187,6 +187,7 @@ class UINavigationMixin(UIStatusMixin, UILeaderMixin):
 
     def action_quit(self: UINavigationMixinHost) -> None:
         """Quit the application."""
+        self._clear_resize_mode()
         close_worker = getattr(self, "_close_process_worker_client", None)
         if callable(close_worker):
             try:
@@ -251,7 +252,7 @@ class UINavigationMixin(UIStatusMixin, UILeaderMixin):
     def action_enter_resize_mode(self: UINavigationMixinHost) -> None:
         """Enter resize mode: arrow keys resize, any other key exits."""
         self._resize_mode_active = True
-        self.notify("RESIZE — ← ↑ ↓ → to resize, any other key exits", timeout=3)
+        self.notify("RESIZE — ← ↑ ↓ → resize, q quits, any other key exits", timeout=3)
 
     def _clear_resize_mode(self: UINavigationMixinHost) -> None:
         """Single point to drop the resize-mode flag.

@@ -444,6 +444,12 @@ class SSMSTUI(
             return
 
         if self._resize_mode_active:
+            if event.key in {"q", "ctrl+q"}:
+                self._clear_resize_mode()
+                self.action_quit()
+                event.prevent_default()
+                event.stop()
+                return
             arrow_map = {
                 "left": "resize_pane_left",
                 "right": "resize_pane_right",

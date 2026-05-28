@@ -78,6 +78,42 @@ class TestResizeModeFlag:
             await pilot.pause()
             assert app._resize_mode_active is False
 
+    @pytest.mark.asyncio
+    async def test_q_quits_from_resize_mode(self):
+        keymap = get_keymap()
+        leader_key = keymap.action("leader_key")
+        app = _make_app()
+        quit_calls: list[None] = []
+
+        async with app.run_test(size=(120, 40)) as pilot:
+            app.exit = lambda *args, **kwargs: quit_calls.append(None)  # type: ignore[method-assign]
+            await pilot.press(leader_key, "r")
+            await pilot.pause()
+            assert app._resize_mode_active is True
+            await pilot.press("q")
+            await pilot.pause()
+
+        assert quit_calls == [None]
+        assert app._resize_mode_active is False
+
+    @pytest.mark.asyncio
+    async def test_ctrl_q_quits_from_resize_mode(self):
+        keymap = get_keymap()
+        leader_key = keymap.action("leader_key")
+        app = _make_app()
+        quit_calls: list[None] = []
+
+        async with app.run_test(size=(120, 40)) as pilot:
+            app.exit = lambda *args, **kwargs: quit_calls.append(None)  # type: ignore[method-assign]
+            await pilot.press(leader_key, "r")
+            await pilot.pause()
+            assert app._resize_mode_active is True
+            await pilot.press("ctrl+q")
+            await pilot.pause()
+
+        assert quit_calls == [None]
+        assert app._resize_mode_active is False
+
 
 class TestExplorerHiddenInteraction:
     @pytest.mark.asyncio
