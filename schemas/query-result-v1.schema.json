@@ -1,0 +1,24 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "miudb.query-result-v1",
+  "type": "object",
+  "required": ["columns", "rows", "truncated"],
+  "properties": {
+    "columns": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["name"],
+        "properties": {
+          "name": {"type": "string"},
+          "type": {"type": "string"},
+          "nullable": {"type": "boolean"}
+        },
+        "additionalProperties": true
+      }
+    },
+    "rows": {"type": "array", "items": {"type": "array"}},
+    "truncated": {"type": "boolean"}
+  },
+  "additionalProperties": true
+}

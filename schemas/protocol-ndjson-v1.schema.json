@@ -1,0 +1,16 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "miudb.protocol-ndjson-v1",
+  "type": "object",
+  "required": ["type"],
+  "properties": {
+    "type": {"type": "string"},
+    "id": {},
+    "method": {"type": "string"},
+    "params": {},
+    "result": {},
+    "event": {"type": "string"},
+    "error": {"type": "object"}
+  },
+  "additionalProperties": true
+}

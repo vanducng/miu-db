@@ -1,0 +1,26 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "miudb.command-catalog-v1",
+  "type": "object",
+  "required": ["commands"],
+  "properties": {
+    "commands": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["name", "summary", "stability", "mutates"],
+        "properties": {
+          "name": {"type": "string"},
+          "summary": {"type": "string"},
+          "description": {"type": "string"},
+          "stability": {"type": "string"},
+          "mutates": {"type": "boolean"},
+          "side_effects": {"type": "array", "items": {"type": "string"}},
+          "examples": {"type": "array"}
+        },
+        "additionalProperties": true
+      }
+    }
+  },
+  "additionalProperties": true
+}

@@ -1,0 +1,49 @@
+{
+  "ok": false,
+  "api_version": "miudb.cli/v1",
+  "kind": "connection.smoke",
+  "command": "connections smoke",
+  "request_id": "req_example",
+  "summary": {
+    "count": 2,
+    "passed": 1,
+    "failed": 1,
+    "timeout": "12s",
+    "concurrency": 2,
+    "by_type": {
+      "sqlite": {
+        "passed": 1,
+        "failed": 0
+      },
+      "mysql": {
+        "passed": 0,
+        "failed": 1
+      }
+    }
+  },
+  "data": {
+    "results": [
+      {
+        "name": "agent-deck",
+        "db_type": "sqlite",
+        "ok": true,
+        "duration_ms": 7,
+        "rows": 1
+      },
+      {
+        "name": "rnd-local",
+        "db_type": "mysql",
+        "ok": false,
+        "duration_ms": 3,
+        "error": {
+          "code": "connection.refused",
+          "message": "dial tcp 127.0.0.1:3307: connect: connection refused",
+          "retryable": true,
+          "safe_to_retry": true
+        }
+      }
+    ]
+  },
+  "artifacts": [],
+  "warnings": []
+}

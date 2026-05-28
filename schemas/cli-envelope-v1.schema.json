@@ -1,0 +1,21 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "miudb.cli-envelope-v1",
+  "type": "object",
+  "required": ["ok", "api_version", "kind", "command", "request_id"],
+  "properties": {
+    "ok": {"type": "boolean"},
+    "api_version": {"type": "string"},
+    "kind": {"type": "string"},
+    "command": {"type": "string"},
+    "request_id": {"type": "string"},
+    "summary": {"type": "object"},
+    "data": {},
+    "page": {"type": "object"},
+    "stats": {"type": "object"},
+    "artifacts": {"type": "array"},
+    "warnings": {"type": "array"},
+    "error": {"type": "object"}
+  },
+  "additionalProperties": true
+}
