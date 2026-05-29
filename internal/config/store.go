@@ -374,6 +374,9 @@ func resolveEndpointSecret(conn *Connection, resolvers []SecretResolver, timeout
 	if conn.Endpoint.Kind == "file" {
 		return nil
 	}
+	if !endpointPasswordRequired(*conn) {
+		return nil
+	}
 	if conn.Endpoint.PasswordCommand != "" {
 		secret, ok, err := resolveCommand(context.Background(), conn.Endpoint.PasswordCommand, timeout)
 		if err != nil {
@@ -392,6 +395,20 @@ func resolveEndpointSecret(conn *Connection, resolvers []SecretResolver, timeout
 		conn.Endpoint.Password = value
 	}
 	return nil
+}
+
+func endpointPasswordRequired(conn Connection) bool {
+	if conn.Endpoint.PasswordCommand != "" || len(SecretRefsFor(conn, "db")) > 0 {
+		return true
+	}
+	switch strings.ToLower(conn.DBType) {
+	case "bigquery":
+		return false
+	case "snowflake":
+		auth, _ := conn.Options["authenticator"].(string)
+		return !strings.EqualFold(auth, "snowflake_jwt")
+	}
+	return conn.Endpoint.Username != ""
 }
 
 func resolveTunnelSecret(conn *Connection, resolvers []SecretResolver, timeout time.Duration) error {
@@ -422,10 +439,14 @@ func resolveTunnelSecret(conn *Connection, resolvers []SecretResolver, timeout t
 }
 
 func resolveSecret(conn Connection, kind string, resolvers []SecretResolver, timeout time.Duration) (string, bool, error) {
+	var firstErr error
 	for _, ref := range SecretRefsFor(conn, kind) {
 		value, ok, err := resolveSecretRef(conn, ref, timeout)
 		if err != nil {
-			return "", false, err
+			if firstErr == nil {
+				firstErr = err
+			}
+			continue
 		}
 		if ok {
 			return value, true, nil
@@ -437,11 +458,17 @@ func resolveSecret(conn Connection, kind string, resolvers []SecretResolver, tim
 			if errors.Is(err, ErrSecretNotFound) {
 				continue
 			}
-			return "", false, err
+			if firstErr == nil {
+				firstErr = err
+			}
+			continue
 		}
 		if ok {
 			return value, true, nil
 		}
+	}
+	if firstErr != nil {
+		return "", false, firstErr
 	}
 	return "", false, nil
 }

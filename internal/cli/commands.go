@@ -195,6 +195,8 @@ func connectionAddCommand(opts *options) *cobra.Command {
 	var secretStore string
 	var tunnelEnabled bool
 	var sshHost, sshPort, sshUser, sshPassword, sshKeyPath, sshConfigAlias string
+	var optionFlags []string
+	var extraOptionFlags []string
 	add := &cobra.Command{
 		Use:   "add",
 		Short: "Add a native miudb connection",
@@ -202,6 +204,16 @@ func connectionAddCommand(opts *options) *cobra.Command {
 			if conn.Name == "" || conn.DBType == "" {
 				return &CLIError{Code: "connection.missing_input", Message: "name and db-type are required", Exit: 2}
 			}
+			options, err := parseOptionFlags(optionFlags)
+			if err != nil {
+				return err
+			}
+			extraOptions, err := parseExtraOptionFlags(extraOptionFlags)
+			if err != nil {
+				return err
+			}
+			conn.Options = options
+			conn.ExtraOptions = extraOptions
 			if conn.Endpoint.Kind == "" {
 				if conn.Endpoint.Path != "" {
 					conn.Endpoint.Kind = "file"
@@ -256,6 +268,8 @@ func connectionAddCommand(opts *options) *cobra.Command {
 	add.Flags().StringVar(&conn.Endpoint.Password, "password", "", "Database password; stored outside connections.json by default")
 	add.Flags().StringVar(&conn.Endpoint.PasswordCommand, "password-command", "", "Command to resolve database password")
 	add.Flags().StringVar(&conn.Endpoint.Path, "path", "", "File path for SQLite-like databases")
+	add.Flags().StringArrayVar(&optionFlags, "option", nil, "Provider option as key=value; repeat for multiple options")
+	add.Flags().StringArrayVar(&extraOptionFlags, "extra-option", nil, "Driver extra option as key=value; repeat for multiple options")
 	add.Flags().StringVar(&secretStore, "secret-store", "keyring", "Secret storage for sensitive fields: keyring, file, inline, none")
 	add.Flags().BoolVar(&tunnelEnabled, "tunnel", false, "Enable SSH tunnel")
 	add.Flags().StringVar(&sshHost, "ssh-host", "", "SSH tunnel host")
@@ -265,6 +279,49 @@ func connectionAddCommand(opts *options) *cobra.Command {
 	add.Flags().StringVar(&sshKeyPath, "ssh-key-path", "", "SSH private key path")
 	add.Flags().StringVar(&sshConfigAlias, "ssh-config-alias", "", "SSH config alias")
 	return add
+}
+
+func parseOptionFlags(values []string) (map[string]any, error) {
+	if len(values) == 0 {
+		return nil, nil
+	}
+	out := map[string]any{}
+	for _, value := range values {
+		key, raw, ok := strings.Cut(value, "=")
+		key = strings.TrimSpace(key)
+		if !ok || key == "" {
+			return nil, &CLIError{Code: "connection.invalid_option", Message: "option must be key=value", Exit: 2}
+		}
+		out[key] = parseOptionValue(strings.TrimSpace(raw))
+	}
+	return out, nil
+}
+
+func parseExtraOptionFlags(values []string) (map[string]string, error) {
+	if len(values) == 0 {
+		return nil, nil
+	}
+	out := map[string]string{}
+	for _, value := range values {
+		key, raw, ok := strings.Cut(value, "=")
+		key = strings.TrimSpace(key)
+		if !ok || key == "" {
+			return nil, &CLIError{Code: "connection.invalid_extra_option", Message: "extra-option must be key=value", Exit: 2}
+		}
+		out[key] = strings.TrimSpace(raw)
+	}
+	return out, nil
+}
+
+func parseOptionValue(value string) any {
+	switch strings.ToLower(value) {
+	case "true":
+		return true
+	case "false":
+		return false
+	default:
+		return value
+	}
 }
 
 func connectionsSmokeCommand(opts *options) *cobra.Command {
