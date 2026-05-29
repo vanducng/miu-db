@@ -168,6 +168,57 @@ func TestConnectionAddStoresSensitiveFieldsOutsideConnectionFile(t *testing.T) {
 	}
 }
 
+func TestCloudConnectionsDoNotRequireEndpointPassword(t *testing.T) {
+	dir := t.TempDir()
+	payload := `{"version":2,"connections":[` +
+		`{"name":"bq","db_type":"bigquery","endpoint":{"kind":"tcp","host":"project"}},` +
+		`{"name":"sf","db_type":"snowflake","endpoint":{"kind":"tcp","host":"account","username":"USER"},"options":{"authenticator":"snowflake_jwt","private_key_file":"~/key.p8"}}` +
+		`]}`
+	if err := os.WriteFile(filepath.Join(dir, "connections.json"), []byte(payload), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	store, err := config.NewStoreWithOptions(config.StoreOptions{
+		Source:        config.SourceFile,
+		ConfigDir:     dir,
+		SecretSources: []string{"file"},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, _, err := store.FindResolved("bq"); err != nil {
+		t.Fatalf("bigquery should not require endpoint password: %v", err)
+	}
+	if _, _, err := store.FindResolved("sf"); err != nil {
+		t.Fatalf("snowflake jwt should not require endpoint password: %v", err)
+	}
+}
+
+func TestSecretResolutionFallsBackAfterStaleRef(t *testing.T) {
+	dir := t.TempDir()
+	payload := `{"version":2,"connections":[{"name":"pg","db_type":"postgresql","endpoint":{"kind":"tcp","host":"localhost","username":"app"},"secrets":[{"target":"endpoint.password","kind":"db","provider":"file","ref":"` + filepath.Join(dir, "missing.json") + `"}]}]}`
+	if err := os.WriteFile(filepath.Join(dir, "connections.json"), []byte(payload), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "credentials.json"), []byte(`{"pg:db":"fallback-secret"}`), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	store, err := config.NewStoreWithOptions(config.StoreOptions{
+		Source:        config.SourceFile,
+		ConfigDir:     dir,
+		SecretSources: []string{"file"},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	conn, _, err := store.FindResolved("pg")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if conn.Endpoint.Password != "fallback-secret" {
+		t.Fatal("fallback credential was not applied after stale secret ref")
+	}
+}
+
 func TestRedactStringMasksSecrets(t *testing.T) {
 	input := "postgres://app:supersecret@localhost/app password=hunter2 token=abc"
 	got := config.RedactString(input)

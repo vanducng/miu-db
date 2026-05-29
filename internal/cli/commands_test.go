@@ -1,6 +1,14 @@
 package cli
 
-import "testing"
+import (
+	"bytes"
+	"encoding/json"
+	"os"
+	"path/filepath"
+	"testing"
+
+	"github.com/vanducng/miu-db/internal/config"
+)
 
 func TestVersionStringPrefersInjectedReleaseVersion(t *testing.T) {
 	previous := version
@@ -8,5 +16,51 @@ func TestVersionStringPrefersInjectedReleaseVersion(t *testing.T) {
 	version = "v9.9.9-test"
 	if got := versionString(); got != version {
 		t.Fatalf("versionString() = %q, want %q", got, version)
+	}
+}
+
+func TestConnectionsAddAcceptsProviderOptions(t *testing.T) {
+	dir := t.TempDir()
+	opts := &options{output: "json", limit: 100}
+	cmd := rootCommand(opts)
+	var out bytes.Buffer
+	cmd.SetOut(&out)
+	cmd.SetArgs([]string{
+		"--config-dir", dir,
+		"connections", "add",
+		"--name", "sf",
+		"--db-type", "snowflake",
+		"--host", "account",
+		"--username", "USER",
+		"--option", "authenticator=snowflake_jwt",
+		"--option", "warehouse=DEV_WH",
+		"--option", "trusted_connection=false",
+		"--extra-option", "sslmode=require",
+	})
+	cmd.SilenceUsage = true
+	cmd.SilenceErrors = true
+	if err := cmd.Execute(); err != nil {
+		t.Fatal(err)
+	}
+	raw, err := os.ReadFile(filepath.Join(dir, "connections.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var root config.Root
+	if err := json.Unmarshal(raw, &root); err != nil {
+		t.Fatal(err)
+	}
+	if len(root.Connections) != 1 {
+		t.Fatalf("expected one connection, got %d", len(root.Connections))
+	}
+	conn := root.Connections[0]
+	if conn.Options["authenticator"] != "snowflake_jwt" {
+		t.Fatal("provider string option was not persisted")
+	}
+	if conn.Options["trusted_connection"] != false {
+		t.Fatal("provider boolean option was not parsed")
+	}
+	if conn.ExtraOptions["sslmode"] != "require" {
+		t.Fatal("extra option was not persisted")
 	}
 }
