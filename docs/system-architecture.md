@@ -8,15 +8,15 @@ description: Components and data flow in the Go miudb core.
 ## Component Flow
 
 ```text
-Shell / agents        Neovim SQL buffers        Future UI
-      |                      |                     |
-      +---------- CLI / protocol boundary ---------+
-                             |
-                          miudb
-                             |
-       config, secrets, tunnels, adapters, workers
-                             |
-                       database drivers
+Shell / agents        MCP hosts        Neovim SQL buffers        Future UI
+      |                  |                    |                    |
+      +---------- CLI / MCP / protocol boundary ------------------+
+                                      |
+                                   miudb
+                                      |
+                config, secrets, tunnels, adapters, workers
+                                      |
+                                database drivers
 ```
 
 ## Core Responsibilities
@@ -27,6 +27,9 @@ inspection, result pagination, and machine-readable output.
 
 Frontends are thin clients. The Neovim plugin shells out to `miudb`, renders
 connection and result scratch buffers, and keeps SQL editing in normal files.
+MCP hosts call the same core services through `miudb mcp serve --transport
+stdio`; native `miudb serve --protocol jsonrpc|ndjson` remains available for
+custom clients.
 
 ## Native Store
 
@@ -50,4 +53,8 @@ Keychain/keyring service.
 - `internal/tunnel/tunnel.go` establishes SSH tunnel-backed TCP connections.
 - `internal/cli/commands.go` exposes connection, query, schema, and protocol
   commands.
+- `internal/core/services.go` provides the shared service boundary used by CLI,
+  native protocol, and MCP.
+- `internal/mcpserver` exposes local stdio MCP tools and resources with
+  allowlists, read-only defaults, output limits, and redacted errors.
 - `ui/miu-db.nvim` provides the current Neovim client.

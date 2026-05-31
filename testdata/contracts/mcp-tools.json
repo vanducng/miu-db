@@ -1,0 +1,9 @@
+[
+  "connections_list",
+  "connection_describe",
+  "connection_test",
+  "connections_smoke",
+  "schema_tree",
+  "query_run",
+  "query_fetch_page"
+]

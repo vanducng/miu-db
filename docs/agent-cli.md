@@ -10,6 +10,12 @@ miudb connections smoke --timeout 12s --concurrency 4 --output json
 miudb query run --connection agent-deck --sql "select 1" --output json
 ```
 
+For MCP-native hosts, run:
+
+```bash
+miudb mcp serve --transport stdio
+```
+
 Rules:
 
 - stdout is machine-readable JSON.
@@ -21,3 +27,5 @@ Rules:
 - Use `connections smoke` when an agent needs a full saved-connection health
   matrix. It returns one JSON envelope containing every per-connection result,
   per-type pass/fail counts, redacted error messages, and retry hints.
+- Use `miudb mcp serve --transport stdio` for Codex, Claude Code, Cursor, and
+  VS Code/Copilot. See [MCP Server](mcp.md) for setup snippets.

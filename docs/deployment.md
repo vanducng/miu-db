@@ -15,8 +15,8 @@ description: Release, Homebrew, and documentation deployment process.
 Releases are tag-driven. Push a version tag to run GoReleaser:
 
 ```bash
-git tag -a v0.2.0-go.6 -m "miudb v0.2.0-go.6"
-git push origin v0.2.0-go.6
+git tag -a v0.2.0-go.9 -m "miudb v0.2.0-go.9"
+git push origin v0.2.0-go.9
 ```
 
 The release workflow builds Darwin and Linux archives, publishes a GitHub
@@ -41,3 +41,21 @@ zensical build --clean
 
 The docs workflow writes `miu-db.vanducng.dev` into `site/CNAME`, uploads the
 generated `site/` directory, and deploys it through `actions/deploy-pages`.
+
+## MCP Release Check
+
+The Homebrew and `go install` artifacts include the local stdio MCP server; no
+extra runtime dependencies are required after `miudb` is on `PATH`.
+
+Before release, verify:
+
+```bash
+go test ./...
+go test ./tests/go -run TestMCPCommandTransportSQLiteFlow -count=1
+go build -buildvcs=false -o ./.miu-db/miudb ./cmd/miudb
+./.miu-db/miudb mcp serve --transport bad 1>/tmp/miudb-mcp.out 2>/tmp/miudb-mcp.err || test $? -eq 2
+test ! -s /tmp/miudb-mcp.out
+```
+
+`miudb mcp serve --transport stdio` is the supported MCP entry point. Native
+`miudb serve --protocol jsonrpc|ndjson` remains for Neovim and custom clients.
