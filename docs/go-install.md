@@ -11,7 +11,7 @@ brew install vanducng/tap/miudb
 Alternative:
 
 ```bash
-go install github.com/vanducng/miu-db/cmd/miudb@v0.2.0-go.6
+go install github.com/vanducng/miu-db/cmd/miudb@v0.2.0-go.9
 ```
 
 Make sure your Go bin directory is on `PATH` when using `go install`:

@@ -20,7 +20,7 @@ brew install vanducng/tap/miudb
 Or:
 
 ```bash
-go install github.com/vanducng/miu-db/cmd/miudb@v0.2.0-go.6
+go install github.com/vanducng/miu-db/cmd/miudb@v0.2.0-go.9
 ```
 
 Verify:
@@ -81,6 +81,18 @@ Daily-driver adapters in this preview:
 - BigQuery
 
 SSH tunnel-backed connections are supported for TCP adapters.
+
+## MCP
+
+Use miudb as a local stdio MCP server for coding-agent hosts:
+
+```bash
+miudb mcp serve --transport stdio
+```
+
+The MCP server exposes redacted connection inventory, schema inspection,
+bounded read-only query execution, pagination, and `miudb://` resources. See
+[docs/mcp.md](docs/mcp.md) for Codex, Claude Code, Cursor, and VS Code setup.
 
 ## UI
 

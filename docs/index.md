@@ -33,6 +33,11 @@ description: Headless database CLI for humans and agents.
     <h2>Agent Contract</h2>
     <p>Stable JSON envelopes, bounded query output, and redacted errors.</p>
   </a>
+  <a class="miu-card" href="mcp/">
+    <span>04</span>
+    <h2>MCP Server</h2>
+    <p>Local stdio tools and resources for Codex, Claude Code, Cursor, and VS Code.</p>
+  </a>
 </section>
 
 ## Core Model
@@ -47,6 +52,7 @@ description: Headless database CLI for humans and agents.
 ## Interfaces
 
 - CLI and agents use JSON envelopes on stdout.
+- MCP hosts use `miudb mcp serve --transport stdio`.
 - Neovim uses normal `.sql` buffers through `ui/miu-db.nvim`.
 - Future UIs should sit under `ui/` and call the core through the same
   command/protocol boundary.

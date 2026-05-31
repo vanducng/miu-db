@@ -3,6 +3,8 @@ package cli
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
+	"io"
 	"os"
 	"path/filepath"
 	"testing"
@@ -62,5 +64,80 @@ func TestConnectionsAddAcceptsProviderOptions(t *testing.T) {
 	}
 	if conn.ExtraOptions["sslmode"] != "require" {
 		t.Fatal("extra option was not persisted")
+	}
+}
+
+func TestMCPServeRejectsUnsupportedTransport(t *testing.T) {
+	dir := t.TempDir()
+	opts := &options{output: "json", limit: 100}
+	cmd := rootCommand(opts)
+	var out bytes.Buffer
+	cmd.SetOut(&out)
+	cmd.SetArgs([]string{
+		"--config-dir", dir,
+		"mcp", "serve",
+		"--transport", "bad",
+	})
+	cmd.SilenceUsage = true
+	cmd.SilenceErrors = true
+	err := cmd.Execute()
+	if err == nil {
+		t.Fatal("expected unsupported transport error")
+	}
+	var cliErr *CLIError
+	if !errors.As(err, &cliErr) {
+		t.Fatalf("error type = %T, want *CLIError", err)
+	}
+	if cliErr.Code != "mcp.unsupported_transport" {
+		t.Fatalf("error code = %q, want mcp.unsupported_transport", cliErr.Code)
+	}
+	if out.Len() != 0 {
+		t.Fatalf("unsupported transport should not write MCP frames, got %q", out.String())
+	}
+}
+
+func TestExecuteMCPServeWritesStartupErrorsToStderr(t *testing.T) {
+	oldStdout := os.Stdout
+	oldStderr := os.Stderr
+	stdoutReader, stdoutWriter, err := os.Pipe()
+	if err != nil {
+		t.Fatal(err)
+	}
+	stderrReader, stderrWriter, err := os.Pipe()
+	if err != nil {
+		t.Fatal(err)
+	}
+	os.Stdout = stdoutWriter
+	os.Stderr = stderrWriter
+	t.Cleanup(func() {
+		os.Stdout = oldStdout
+		os.Stderr = oldStderr
+		stdoutReader.Close()
+		stderrReader.Close()
+	})
+
+	execErr := Execute([]string{"mcp", "serve", "--transport", "bad"})
+	if closeErr := stdoutWriter.Close(); closeErr != nil {
+		t.Fatal(closeErr)
+	}
+	if closeErr := stderrWriter.Close(); closeErr != nil {
+		t.Fatal(closeErr)
+	}
+	if execErr == nil {
+		t.Fatal("expected unsupported transport error")
+	}
+	stdout, err := io.ReadAll(stdoutReader)
+	if err != nil {
+		t.Fatal(err)
+	}
+	stderr, err := io.ReadAll(stderrReader)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(stdout) != 0 {
+		t.Fatalf("mcp serve startup error wrote to stdout: %q", string(stdout))
+	}
+	if !bytes.Contains(stderr, []byte(`"code":"mcp.unsupported_transport"`)) {
+		t.Fatalf("stderr missing structured MCP startup error: %q", string(stderr))
 	}
 }

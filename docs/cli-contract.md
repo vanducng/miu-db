@@ -50,6 +50,11 @@ client notifications for call events.
 response, and event. Raw human progress is never written to stdout in either
 mode.
 
+`miudb mcp serve --transport stdio` starts a standards-compliant MCP server over
+stdio for coding-agent hosts. MCP protocol frames are the only data written to
+stdout; diagnostics and SDK logging go to stderr. The native `miudb serve`
+protocol remains available for Neovim and custom clients.
+
 ## Command Catalog
 
 `miudb commands --output json` returns the command catalog. `miudb describe

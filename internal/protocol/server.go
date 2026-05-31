@@ -9,11 +9,12 @@ import (
 
 	"github.com/vanducng/miu-db/internal/adapter"
 	"github.com/vanducng/miu-db/internal/config"
-	"github.com/vanducng/miu-db/internal/query"
+	"github.com/vanducng/miu-db/internal/core"
 	"github.com/vanducng/miu-db/internal/result"
 )
 
 type Server struct {
+	Services  *core.Services
 	Store     *config.Store
 	Registry  *adapter.Registry
 	PageStore *result.PageStore
@@ -47,7 +48,7 @@ func (s *Server) handle(ctx context.Context, req Request) (any, error) {
 		return map[string]any{"name": "miudb", "protocol": s.Protocol}, nil
 	case "connection.list":
 		items := []any{}
-		for _, conn := range s.Store.Connections() {
+		for _, conn := range s.services().Connections() {
 			items = append(items, config.RedactedConnection(conn))
 		}
 		return items, nil
@@ -55,20 +56,24 @@ func (s *Server) handle(ctx context.Context, req Request) (any, error) {
 		name, _ := req.Params["connection"].(string)
 		sqlText, _ := req.Params["sql"].(string)
 		limit := intFromParam(req.Params["limit"], 100)
-		conn, ok, err := s.Store.FindResolved(name)
-		if err != nil {
-			return nil, err
-		}
-		if !ok {
-			return nil, fmt.Errorf("connection %q not found", name)
-		}
-		service := query.Service{Registry: s.Registry, PageStore: s.PageStore}
-		return service.Run(ctx, conn, sqlText, limit)
+		_, outcome, err := s.services().RunQuery(ctx, name, sqlText, limit)
+		return outcome, err
 	case "call.fetch_page":
 		cursor, _ := req.Params["cursor"].(string)
-		return s.PageStore.Fetch(cursor)
+		return s.services().FetchPage(cursor)
 	default:
 		return nil, fmt.Errorf("unknown method %q", req.Method)
+	}
+}
+
+func (s *Server) services() *core.Services {
+	if s.Services != nil {
+		return s.Services
+	}
+	return &core.Services{
+		Store:     s.Store,
+		Registry:  s.Registry,
+		PageStore: s.PageStore,
 	}
 }
 

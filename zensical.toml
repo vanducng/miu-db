@@ -43,7 +43,8 @@ Home = "index.md"
 [[project.nav]]
 "Agent CLI" = [
   "agent-cli.md",
-  "cli-contract.md"
+  "cli-contract.md",
+  "mcp.md"
 ]
 
 [[project.nav]]

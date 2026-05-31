@@ -13,14 +13,10 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/vanducng/miu-db/internal/adapter"
-	"github.com/vanducng/miu-db/internal/adapters/bigquery"
-	"github.com/vanducng/miu-db/internal/adapters/mysql"
-	"github.com/vanducng/miu-db/internal/adapters/postgres"
-	"github.com/vanducng/miu-db/internal/adapters/snowflake"
-	"github.com/vanducng/miu-db/internal/adapters/sqlite"
 	"github.com/vanducng/miu-db/internal/config"
+	"github.com/vanducng/miu-db/internal/core"
+	"github.com/vanducng/miu-db/internal/mcpserver"
 	"github.com/vanducng/miu-db/internal/protocol"
-	"github.com/vanducng/miu-db/internal/query"
 	"github.com/vanducng/miu-db/internal/result"
 )
 
@@ -47,7 +43,7 @@ type commandInfo struct {
 	Examples    []string `json:"examples"`
 }
 
-var version = "v0.2.0-go.5-dev"
+var version = "v0.2.0-go.9-dev"
 
 func Execute(args []string) error {
 	opts := &options{output: "json", limit: 100, timeout: 30 * time.Second}
@@ -56,7 +52,11 @@ func Execute(args []string) error {
 	root.SilenceUsage = true
 	root.SilenceErrors = true
 	if err := root.Execute(); err != nil {
-		_ = writeError(os.Stdout, commandPath(args), err)
+		errorWriter := os.Stdout
+		if isMCPServeCommand(args) {
+			errorWriter = os.Stderr
+		}
+		_ = writeError(errorWriter, commandPath(args), err)
 		return err
 	}
 	return nil
@@ -84,6 +84,7 @@ func rootCommand(opts *options) *cobra.Command {
 	root.AddCommand(connectionsCommand(opts))
 	root.AddCommand(queryCommand(opts))
 	root.AddCommand(schemaCommand(opts))
+	root.AddCommand(mcpCommand(opts))
 	root.AddCommand(serveCommand(opts))
 	return root
 }
@@ -142,17 +143,17 @@ func connectionsCommand(opts *options) *cobra.Command {
 		Use:   "list",
 		Short: "List saved connections",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			store, err := loadStore(opts)
+			services, err := loadServices(opts)
 			if err != nil {
 				return err
 			}
 			items := []any{}
 			byType := map[string]int{}
-			for _, conn := range store.Connections() {
+			for _, conn := range services.Connections() {
 				items = append(items, config.RedactedConnection(conn))
 				byType[conn.DBType]++
 			}
-			return writeSuccess(cmd.OutOrStdout(), "connections list", "connection.list", map[string]any{"connections": items}, map[string]any{"count": len(items), "by_type": byType, "store": store.Info()})
+			return writeSuccess(cmd.OutOrStdout(), "connections list", "connection.list", map[string]any{"connections": items}, map[string]any{"count": len(items), "by_type": byType, "store": services.Store.Info()})
 		},
 	})
 	cmd.AddCommand(connectionAddCommand(opts))
@@ -161,28 +162,20 @@ func connectionsCommand(opts *options) *cobra.Command {
 		Short: "Test a connection",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			store, err := loadStore(opts)
+			services, err := loadServices(opts)
 			if err != nil {
 				return err
 			}
-			conn, ok, err := store.FindResolved(args[0])
+			conn, err := services.TestConnection(cmd.Context(), args[0])
 			if err != nil {
+				if strings.Contains(err.Error(), "not found") {
+					return &CLIError{Code: "connection.not_found", Message: "connection not found", Exit: 2}
+				}
+				if strings.Contains(err.Error(), "unsupported database type") {
+					return &CLIError{Code: "adapter.unsupported", Message: adapter.MissingProvider(conn.DBType).Error(), Exit: 2}
+				}
 				return err
 			}
-			if !ok {
-				return &CLIError{Code: "connection.not_found", Message: "connection not found", Exit: 2}
-			}
-			ctx, cancel := context.WithTimeout(context.Background(), opts.timeout)
-			defer cancel()
-			provider, ok := registry().Get(conn.DBType)
-			if !ok {
-				return &CLIError{Code: "adapter.unsupported", Message: adapter.MissingProvider(conn.DBType).Error(), Exit: 2}
-			}
-			session, err := provider.Open(ctx, conn)
-			if err != nil {
-				return err
-			}
-			defer session.Close()
 			return writeSuccess(cmd.OutOrStdout(), "connections test", "connection.test", map[string]any{"name": conn.Name, "ok": true}, map[string]any{"db_type": conn.DBType})
 		},
 	})
@@ -332,11 +325,11 @@ func connectionsSmokeCommand(opts *options) *cobra.Command {
 		Use:   "smoke",
 		Short: "Run a smoke query across saved connections",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			store, err := loadStore(opts)
+			services, err := loadServices(opts)
 			if err != nil {
 				return err
 			}
-			conns := selectConnections(store.Connections(), names)
+			conns := selectConnections(services.Connections(), names)
 			if len(conns) == 0 {
 				return &CLIError{Code: "connection.not_found", Message: "no matching connections", Exit: 2}
 			}
@@ -350,19 +343,17 @@ func connectionsSmokeCommand(opts *options) *cobra.Command {
 			results := make([]smokeResult, len(conns))
 			jobs := make(chan int)
 			var wg sync.WaitGroup
-			reg := registry()
-			pageStore := result.NewPageStore("")
 			for i := 0; i < concurrency; i++ {
 				wg.Add(1)
 				go func() {
 					defer wg.Done()
 					for idx := range jobs {
-						conn, err := store.Resolve(conns[idx])
+						conn, err := services.Store.Resolve(conns[idx])
 						if err != nil {
 							results[idx] = smokeResolveError(conns[idx], err)
 							continue
 						}
-						results[idx] = runSmoke(cmd.Context(), reg, pageStore, conn, sqlText, opts.limit, opts.timeout)
+						results[idx] = runSmoke(cmd.Context(), services, conn, sqlText, opts.limit)
 					}
 				}()
 			}
@@ -436,12 +427,15 @@ func selectConnections(conns []config.Connection, names []string) []config.Conne
 	return out
 }
 
-func runSmoke(parent context.Context, reg *adapter.Registry, pageStore *result.PageStore, conn config.Connection, sqlText string, limit int, timeout time.Duration) smokeResult {
+func runSmoke(parent context.Context, services *core.Services, conn config.Connection, sqlText string, limit int) smokeResult {
 	start := time.Now()
-	ctx, cancel := context.WithTimeout(parent, timeout)
+	ctx := parent
+	cancel := func() {}
+	if services.Timeout > 0 {
+		ctx, cancel = context.WithTimeout(parent, services.Timeout)
+	}
 	defer cancel()
-	service := query.Service{Registry: reg, PageStore: pageStore}
-	outcome, err := service.Run(ctx, conn, sqlText, limit)
+	outcome, err := services.RunQueryConnection(ctx, conn, sqlText, limit)
 	res := smokeResult{Name: conn.Name, DBType: conn.DBType, DurationMS: time.Since(start).Milliseconds()}
 	if err != nil {
 		info := errorInfo(err)
@@ -558,22 +552,15 @@ func queryCommand(opts *options) *cobra.Command {
 			if connectionName == "" || sqlText == "" {
 				return &CLIError{Code: "query.missing_input", Message: "connection and sql are required", Exit: 2}
 			}
-			store, err := loadStore(opts)
+			services, err := loadServices(opts)
 			if err != nil {
 				return err
 			}
-			conn, ok, err := store.FindResolved(connectionName)
+			conn, outcome, err := services.RunQuery(cmd.Context(), connectionName, sqlText, opts.limit)
 			if err != nil {
-				return err
-			}
-			if !ok {
-				return &CLIError{Code: "connection.not_found", Message: "connection not found", Exit: 2}
-			}
-			service := query.Service{Registry: registry(), PageStore: result.NewPageStore("")}
-			ctx, cancel := context.WithTimeout(context.Background(), opts.timeout)
-			defer cancel()
-			outcome, err := service.Run(ctx, conn, sqlText, opts.limit)
-			if err != nil {
+				if strings.Contains(err.Error(), "not found") {
+					return &CLIError{Code: "connection.not_found", Message: "connection not found", Exit: 2}
+				}
 				return err
 			}
 			envData := map[string]any{"connection": conn.Name, "result": outcome.Result}
@@ -602,7 +589,7 @@ func queryCommand(opts *options) *cobra.Command {
 			if cursor == "" {
 				return &CLIError{Code: "query.missing_cursor", Message: "cursor is required", Exit: 2}
 			}
-			page, err := result.NewPageStore("").Fetch(cursor)
+			page, err := (&core.Services{PageStore: result.NewPageStore("")}).FetchPage(cursor)
 			if err != nil {
 				return err
 			}
@@ -621,30 +608,18 @@ func schemaCommand(opts *options) *cobra.Command {
 		Use:   "tree",
 		Short: "Return schema tree",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			store, err := loadStore(opts)
+			services, err := loadServices(opts)
 			if err != nil {
 				return err
 			}
-			conn, ok, err := store.FindResolved(connectionName)
+			conn, data, err := services.SchemaTree(cmd.Context(), connectionName)
 			if err != nil {
-				return err
-			}
-			if !ok {
-				return &CLIError{Code: "connection.not_found", Message: "connection not found", Exit: 2}
-			}
-			provider, ok := registry().Get(conn.DBType)
-			if !ok {
-				return &CLIError{Code: "adapter.unsupported", Message: adapter.MissingProvider(conn.DBType).Error(), Exit: 2}
-			}
-			ctx, cancel := context.WithTimeout(context.Background(), opts.timeout)
-			defer cancel()
-			session, err := provider.Open(ctx, conn)
-			if err != nil {
-				return err
-			}
-			defer session.Close()
-			data, err := provider.Schema(ctx, session)
-			if err != nil {
+				if strings.Contains(err.Error(), "not found") {
+					return &CLIError{Code: "connection.not_found", Message: "connection not found", Exit: 2}
+				}
+				if strings.Contains(err.Error(), "unsupported database type") {
+					return &CLIError{Code: "adapter.unsupported", Message: adapter.MissingProvider(conn.DBType).Error(), Exit: 2}
+				}
 				return err
 			}
 			return writeSuccess(cmd.OutOrStdout(), "schema tree", "schema.tree", data, map[string]any{"connection": conn.Name})
@@ -655,21 +630,82 @@ func schemaCommand(opts *options) *cobra.Command {
 	return cmd
 }
 
+func mcpCommand(opts *options) *cobra.Command {
+	cmd := &cobra.Command{Use: "mcp", Short: "Serve Model Context Protocol"}
+	var transport string
+	var allowedConnections []string
+	var defaultLimit int
+	var maxLimit int
+	var maxBytes int
+	var allowMutations bool
+	serve := &cobra.Command{
+		Use:   "serve",
+		Short: "Serve MCP over stdio",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			normalizedTransport := strings.ToLower(strings.TrimSpace(transport))
+			if normalizedTransport == "" {
+				normalizedTransport = mcpserver.TransportStdio
+			}
+			if normalizedTransport != mcpserver.TransportStdio {
+				return &CLIError{
+					Code:    "mcp.unsupported_transport",
+					Message: (&mcpserver.UnsupportedTransportError{Transport: transport}).Error(),
+					Exit:    2,
+					Details: map[string]any{"transport": transport},
+				}
+			}
+			services, err := loadServices(opts)
+			if err != nil {
+				return err
+			}
+			err = mcpserver.Serve(cmd.Context(), services, mcpserver.Options{
+				Transport:             normalizedTransport,
+				ImplementationName:    "miudb",
+				ImplementationVersion: versionString(),
+				AllowedConnections:    allowedConnections,
+				Timeout:               opts.timeout,
+				DefaultLimit:          defaultLimit,
+				MaxLimit:              maxLimit,
+				MaxBytes:              maxBytes,
+				AllowMutations:        allowMutations,
+			}, cmd.InOrStdin(), cmd.OutOrStdout(), cmd.ErrOrStderr())
+			var unsupported *mcpserver.UnsupportedTransportError
+			if errors.As(err, &unsupported) {
+				return &CLIError{
+					Code:    "mcp.unsupported_transport",
+					Message: unsupported.Error(),
+					Exit:    2,
+					Details: map[string]any{"transport": unsupported.Transport},
+				}
+			}
+			return err
+		},
+	}
+	serve.Flags().StringVar(&transport, "transport", mcpserver.TransportStdio, "MCP transport: stdio")
+	serve.Flags().StringArrayVar(&allowedConnections, "connection", nil, "Allowed connection name; repeat to restrict MCP-visible connections")
+	serve.Flags().IntVar(&defaultLimit, "limit", opts.limit, "Default row limit for MCP query tools")
+	serve.Flags().IntVar(&maxLimit, "max-limit", 1000, "Maximum row limit accepted by MCP query tools")
+	serve.Flags().IntVar(&maxBytes, "max-bytes", 1<<20, "Maximum serialized bytes per MCP tool response")
+	serve.Flags().BoolVar(&allowMutations, "allow-mutate", false, "Allow mutation SQL through MCP query_run; unsafe")
+	cmd.AddCommand(serve)
+	return cmd
+}
+
 func serveCommand(opts *options) *cobra.Command {
 	var protocolName string
 	cmd := &cobra.Command{
 		Use:   "serve",
 		Short: "Serve protocol over stdio",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			store, err := loadStore(opts)
+			services, err := loadServices(opts)
 			if err != nil {
 				return err
 			}
 			if protocolName != "jsonrpc" && protocolName != "ndjson" {
 				return &CLIError{Code: "protocol.invalid", Message: "protocol must be jsonrpc or ndjson", Exit: 2}
 			}
-			server := protocol.Server{Store: store, Registry: registry(), PageStore: result.NewPageStore(""), Protocol: protocolName}
-			return server.Serve(context.Background(), os.Stdin, os.Stdout)
+			server := protocol.Server{Services: services, Protocol: protocolName}
+			return server.Serve(cmd.Context(), os.Stdin, os.Stdout)
 		},
 	}
 	cmd.Flags().StringVar(&protocolName, "protocol", "jsonrpc", "Protocol: jsonrpc or ndjson")
@@ -702,14 +738,12 @@ func loadStoreAllowMissing(opts *options) (*config.Store, error) {
 	})
 }
 
-func registry() *adapter.Registry {
-	reg := adapter.NewRegistry()
-	reg.Register(sqlite.New())
-	reg.Register(postgres.New())
-	reg.Register(mysql.New())
-	reg.Register(snowflake.New())
-	reg.Register(bigquery.New())
-	return reg
+func loadServices(opts *options) (*core.Services, error) {
+	store, err := loadStore(opts)
+	if err != nil {
+		return nil, err
+	}
+	return core.NewServices(store, opts.timeout), nil
 }
 
 func catalog() []commandInfo {
@@ -723,6 +757,7 @@ func catalog() []commandInfo {
 		{Name: "query run", Summary: "Run SQL against a saved connection", Stability: "experimental", Mutates: false, SideEffects: []string{"opens_connection", "may_create_tunnel", "may_write_page_store"}},
 		{Name: "query fetch-page", Summary: "Fetch a continued result page", Stability: "experimental", Mutates: false},
 		{Name: "schema tree", Summary: "Inspect schema objects", Stability: "experimental", Mutates: false, SideEffects: []string{"opens_connection", "may_create_tunnel"}},
+		{Name: "mcp serve", Summary: "Serve standard MCP over stdio", Stability: "experimental", Mutates: false, SideEffects: []string{"opens_connections", "may_create_tunnels"}},
 		{Name: "serve", Summary: "Serve JSON-RPC or NDJSON over stdio", Stability: "experimental", Mutates: false},
 	}
 }
@@ -735,6 +770,15 @@ func commandPath(args []string) string {
 		args = args[:2]
 	}
 	return strings.Join(args, " ")
+}
+
+func isMCPServeCommand(args []string) bool {
+	for i := 0; i < len(args)-1; i++ {
+		if args[i] == "mcp" && args[i+1] == "serve" {
+			return true
+		}
+	}
+	return false
 }
 
 func splitCSV(value string) []string {

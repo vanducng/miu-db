@@ -1,0 +1,26 @@
+{
+  "connection": "local",
+  "db_type": "sqlite",
+  "limit": 1,
+  "result": {
+    "columns": [
+      {
+        "name": "id",
+        "nullable": true,
+        "type": "INTEGER"
+      },
+      {
+        "name": "name",
+        "nullable": true,
+        "type": "TEXT"
+      }
+    ],
+    "rows": [
+      [
+        1,
+        "alice"
+      ]
+    ],
+    "truncated": true
+  }
+}
