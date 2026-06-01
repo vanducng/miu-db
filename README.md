@@ -8,8 +8,7 @@
 
 `miudb` is the Go core for miu-db. It keeps the database layer focused on
 connections, credentials, tunnels, adapters, query execution, schema inspection,
-and machine-readable output. User interfaces live outside the core under
-`ui/`.
+MCP, and machine-readable output.
 
 ## Install
 
@@ -17,11 +16,24 @@ and machine-readable output. User interfaces live outside the core under
 brew install vanducng/tap/miudb
 ```
 
-Or:
+Or install with Go:
 
 ```bash
 go install github.com/vanducng/miu-db/cmd/miudb@v0.2.0-go.9
 ```
+
+Windows release archives are published on GitHub Releases as zip files. In
+PowerShell:
+
+```powershell
+$version = "v0.2.0-go.9"
+$asset = "miudb_windows_x86_64.zip"
+Invoke-WebRequest "https://github.com/vanducng/miu-db/releases/download/$version/$asset" -OutFile $asset
+Expand-Archive $asset -DestinationPath ".\miudb" -Force
+.\miudb\miudb.exe version --output json
+```
+
+Use `miudb_windows_arm64.zip` on Windows ARM64.
 
 Verify:
 
@@ -93,22 +105,6 @@ miudb mcp serve --transport stdio
 The MCP server exposes redacted connection inventory, schema inspection,
 bounded read-only query execution, pagination, and `miudb://` resources. See
 [docs/mcp.md](docs/mcp.md) for Codex, Claude Code, Cursor, and VS Code setup.
-
-## UI
-
-The Neovim scaffold lives in:
-
-```text
-ui/miu-db.nvim
-```
-
-Future clients should follow the same boundary:
-
-```text
-ui/miu-db.nvim
-ui/tui
-ui/web
-```
 
 ## Development
 

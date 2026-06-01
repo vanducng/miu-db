@@ -19,9 +19,10 @@ git tag -a v0.2.0-go.9 -m "miudb v0.2.0-go.9"
 git push origin v0.2.0-go.9
 ```
 
-The release workflow builds Darwin and Linux archives, publishes a GitHub
-release, and updates the Homebrew tap when the `HOMEBREW_TAP_GITHUB_TOKEN`
-repository secret is configured.
+The release workflow builds Darwin, Linux, and Windows archives, publishes a
+GitHub release, and updates the Homebrew tap when the
+`HOMEBREW_TAP_GITHUB_TOKEN` repository secret is configured. Windows artifacts
+are published as zip archives.
 
 ## Homebrew Install
 

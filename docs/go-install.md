@@ -14,6 +14,19 @@ Alternative:
 go install github.com/vanducng/miu-db/cmd/miudb@v0.2.0-go.9
 ```
 
+Windows release archives are published on GitHub Releases as zip files. In
+PowerShell:
+
+```powershell
+$version = "v0.2.0-go.9"
+$asset = "miudb_windows_x86_64.zip"
+Invoke-WebRequest "https://github.com/vanducng/miu-db/releases/download/$version/$asset" -OutFile $asset
+Expand-Archive $asset -DestinationPath ".\miudb" -Force
+.\miudb\miudb.exe version --output json
+```
+
+Use `miudb_windows_arm64.zip` on Windows ARM64.
+
 Make sure your Go bin directory is on `PATH` when using `go install`:
 
 ```bash
