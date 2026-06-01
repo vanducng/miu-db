@@ -1,6 +1,6 @@
 # miudb Daily Driver Notes
 
-This preview uses a native Go store by default:
+miudb uses a native Go store by default:
 
 ```text
 ~/.config/miu/db/connections.json

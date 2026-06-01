@@ -2,13 +2,25 @@ name: Release
 
 on:
   push:
+    branches:
+      - main
     tags:
       - "v*"
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Stable version tag to release, for example v0.2.0. Leave empty to derive it."
+        required: false
+        type: string
 
 permissions:
   contents: write
   packages: write
   id-token: write
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
 
 jobs:
   release:
@@ -22,25 +34,133 @@ jobs:
           fetch-depth: 0
 
       - name: Set up Go
-        uses: actions/setup-go@v5
+        uses: actions/setup-go@v6
         with:
           go-version: "1.25.8"
           cache-dependency-path: go.sum
 
+      - name: Resolve stable release tag
+        id: release-tag
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          INPUT_VERSION: ${{ inputs.version }}
+        run: |
+          set -euo pipefail
+
+          git fetch --tags --force
+
+          bump_patch() {
+            local version="${1#v}"
+            IFS=. read -r major minor patch <<< "$version"
+            printf 'v%s.%s.%s\n' "$major" "$minor" "$((patch + 1))"
+          }
+
+          tag=""
+          create_tag=true
+          skip=false
+
+          if [[ "${GITHUB_REF}" == refs/tags/* ]]; then
+            tag="${GITHUB_REF_NAME}"
+            create_tag=false
+            if [[ ! "${tag}" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+              echo "Ignoring non-stable release tag ${tag}."
+              {
+                echo "tag=${tag}"
+                echo "create_tag=false"
+                echo "skip=true"
+              } >> "$GITHUB_OUTPUT"
+              exit 0
+            fi
+          elif [[ -n "${INPUT_VERSION}" ]]; then
+            tag="${INPUT_VERSION}"
+          else
+            stable_latest="$(
+              git tag --list 'v[0-9]*.[0-9]*.[0-9]*' |
+                grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' |
+                sort -V |
+                tail -1 || true
+            )"
+            preview_latest="$(
+              git tag --list 'v[0-9]*.[0-9]*.[0-9]*-go.[0-9]*' |
+                sort -V |
+                tail -1 || true
+            )"
+            preview_base=""
+            if [[ -n "${preview_latest}" ]]; then
+              preview_base="${preview_latest%-go.*}"
+            fi
+
+            if [[ -z "${stable_latest}" && -n "${preview_base}" ]]; then
+              tag="${preview_base}"
+            elif [[ -n "${stable_latest}" && -n "${preview_base}" && "${preview_base}" != "${stable_latest}" ]]; then
+              newest_base="$(printf '%s\n%s\n' "${stable_latest}" "${preview_base}" | sort -V | tail -1)"
+              if [[ "${newest_base}" == "${preview_base}" ]]; then
+                tag="${preview_base}"
+              fi
+            fi
+
+            if [[ -z "${tag}" ]]; then
+              if [[ -n "${stable_latest}" ]]; then
+                tag="$(bump_patch "${stable_latest}")"
+              else
+                tag="v0.1.0"
+              fi
+            fi
+          fi
+
+          if [[ ! "${tag}" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "::error::Release tags must use stable semver like v0.2.0; got ${tag}"
+            exit 1
+          fi
+
+          while git rev-parse -q --verify "refs/tags/${tag}" >/dev/null; do
+            tag_sha="$(git rev-list -n 1 "${tag}")"
+            head_sha="$(git rev-parse HEAD)"
+            if [[ "${tag_sha}" == "${head_sha}" ]]; then
+              create_tag=false
+              break
+            fi
+            tag="$(bump_patch "${tag}")"
+          done
+
+          if gh release view "${tag}" >/dev/null 2>&1; then
+            echo "Release ${tag} already exists; skipping."
+            skip=true
+          fi
+
+          {
+            echo "tag=${tag}"
+            echo "create_tag=${create_tag}"
+            echo "skip=${skip}"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Create stable release tag
+        if: steps.release-tag.outputs.skip != 'true' && steps.release-tag.outputs.create_tag == 'true'
+        env:
+          TAG: ${{ steps.release-tag.outputs.tag }}
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git tag -a "${TAG}" -m "miudb ${TAG}"
+          git push origin "${TAG}"
+
       - name: Run GoReleaser
-        if: ${{ env.HOMEBREW_TAP_GITHUB_TOKEN != '' }}
+        if: steps.release-tag.outputs.skip != 'true' && env.HOMEBREW_TAP_GITHUB_TOKEN != ''
         uses: goreleaser/goreleaser-action@v7
         with:
           version: v2.15.4
           args: release --clean
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GORELEASER_CURRENT_TAG: ${{ steps.release-tag.outputs.tag }}
 
       - name: Run GoReleaser without Homebrew tap
-        if: ${{ env.HOMEBREW_TAP_GITHUB_TOKEN == '' }}
+        if: steps.release-tag.outputs.skip != 'true' && env.HOMEBREW_TAP_GITHUB_TOKEN == ''
         uses: goreleaser/goreleaser-action@v7
         with:
           version: v2.15.4
           args: release --clean --skip=homebrew
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GORELEASER_CURRENT_TAG: ${{ steps.release-tag.outputs.tag }}

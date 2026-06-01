@@ -12,12 +12,17 @@ description: Release, Homebrew, and documentation deployment process.
 
 ## CLI Release
 
-Releases are tag-driven. Push a version tag to run GoReleaser:
+Releases are automated from `main`. Merging to `main` creates the next stable
+semver tag and runs GoReleaser in the same workflow:
 
 ```bash
-git tag -a v0.2.0-go.9 -m "miudb v0.2.0-go.9"
-git push origin v0.2.0-go.9
+v0.2.0
+v0.2.1
+v0.2.2
 ```
+
+Preview tags such as `v0.2.0-go.9` are historical only; stable releases use
+plain semver without the `-go.N` suffix.
 
 The release workflow builds Darwin, Linux, and Windows archives, publishes a
 GitHub release, and updates the Homebrew tap when the

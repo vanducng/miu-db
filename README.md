@@ -19,14 +19,14 @@ brew install vanducng/tap/miudb
 Or install with Go:
 
 ```bash
-go install github.com/vanducng/miu-db/cmd/miudb@v0.2.0-go.9
+go install github.com/vanducng/miu-db/cmd/miudb@v0.2.0
 ```
 
 Windows release archives are published on GitHub Releases as zip files. In
 PowerShell:
 
 ```powershell
-$version = "v0.2.0-go.9"
+$version = "v0.2.0"
 $asset = "miudb_windows_x86_64.zip"
 Invoke-WebRequest "https://github.com/vanducng/miu-db/releases/download/$version/$asset" -OutFile $asset
 Expand-Archive $asset -DestinationPath ".\miudb" -Force
@@ -84,7 +84,7 @@ Future secret providers can plug into the same `SecretRef` model, including
 
 ## Adapters
 
-Daily-driver adapters in this preview:
+Daily-driver adapters:
 
 - SQLite
 - PostgreSQL
