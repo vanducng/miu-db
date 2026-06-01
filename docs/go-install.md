@@ -1,6 +1,6 @@
-# miudb Go Preview Install
+# miudb Install
 
-The Go preview binary is named `miudb`.
+The Go binary is named `miudb`.
 
 ## Release Install
 
@@ -11,14 +11,14 @@ brew install vanducng/tap/miudb
 Alternative:
 
 ```bash
-go install github.com/vanducng/miu-db/cmd/miudb@v0.2.0-go.9
+go install github.com/vanducng/miu-db/cmd/miudb@v0.2.0
 ```
 
 Windows release archives are published on GitHub Releases as zip files. In
 PowerShell:
 
 ```powershell
-$version = "v0.2.0-go.9"
+$version = "v0.2.0"
 $asset = "miudb_windows_x86_64.zip"
 Invoke-WebRequest "https://github.com/vanducng/miu-db/releases/download/$version/$asset" -OutFile $asset
 Expand-Archive $asset -DestinationPath ".\miudb" -Force
