@@ -1,4 +1,6 @@
-# Agent CLI Usage
+---
+title: "Agent CLI Usage"
+---
 
 Use JSON output for all agent calls:
 
@@ -28,4 +30,4 @@ Rules:
   matrix. It returns one JSON envelope containing every per-connection result,
   per-type pass/fail counts, redacted error messages, and retry hints.
 - Use `miudb mcp serve --transport stdio` for Codex, Claude Code, Cursor, and
-  VS Code/Copilot. See [MCP Server](mcp.md) for setup snippets.
+  VS Code/Copilot. See [MCP Server](/mcp/) for setup snippets.

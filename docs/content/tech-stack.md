@@ -30,5 +30,5 @@ description: Runtime, libraries, and release tooling used by miudb.
 
 - Releases: GoReleaser
 - Homebrew formula: `vanducng/homebrew-tap`
-- Docs site: Zensical
+- Docs site: Astro Starlight
 - Docs deploy: GitHub Pages through `.github/workflows/docs.yml`

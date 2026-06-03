@@ -1,4 +1,6 @@
-# Cloud Adapters
+---
+title: "Cloud Adapters"
+---
 
 ## BigQuery
 

@@ -1,4 +1,6 @@
-# miudb CLI Contract
+---
+title: "miudb CLI Contract"
+---
 
 The Go track exposes `miudb` as the primary binary. `miu-db` remains the Python
 entry point.

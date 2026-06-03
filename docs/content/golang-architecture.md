@@ -1,4 +1,6 @@
-# Go Track Architecture Notes
+---
+title: "Go Track Architecture Notes"
+---
 
 Date: 2026-05-28
 Branch: `golang`

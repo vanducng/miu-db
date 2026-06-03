@@ -42,11 +42,11 @@ miudb version --output json
 Documentation deploys from `main` through GitHub Pages:
 
 ```bash
-zensical build --clean
+cd docs && npm run build   # astro build -> docs/dist/
 ```
 
-The docs workflow writes `miu-db.vanducng.dev` into `site/CNAME`, uploads the
-generated `site/` directory, and deploys it through `actions/deploy-pages`.
+The docs workflow builds `docs/` with `withastro/action` (custom domain from
+`docs/public/CNAME`) and deploys it through `actions/deploy-pages`.
 
 ## MCP Release Check
 

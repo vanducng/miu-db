@@ -3,3 +3,8 @@
 site/
 *.db
 coverage.out
+
+# Astro / Starlight docs site
+node_modules/
+docs/dist/
+.astro/

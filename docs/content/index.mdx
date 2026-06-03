@@ -1,0 +1,33 @@
+---
+title: Overview
+description: Headless database CLI for humans and agents.
+---
+
+import { CardGrid, LinkCard } from '@astrojs/starlight/components';
+
+`miudb` keeps connections, secrets, tunnels, adapters, query execution, schema inspection, and machine-readable output in a Go core that can be driven from the shell, Neovim, or future UIs. Start with [Install](/go-install/), or jump to the [Agent CLI](/agent-cli/).
+
+## What's inside
+
+<CardGrid>
+  <LinkCard title="Daily Driver" href="/go-daily-driver/" description="SQLite, PostgreSQL, MySQL, Snowflake, BigQuery, and SSH tunnels." />
+  <LinkCard title="Headless Core" href="/system-architecture/" description="Config, secrets, adapters, tunnels, workers, and result paging." />
+  <LinkCard title="Agent Contract" href="/cli-contract/" description="Stable JSON envelopes, bounded query output, and redacted errors." />
+  <LinkCard title="MCP Server" href="/mcp/" description="Local stdio tools and resources for Codex, Claude Code, Cursor, and VS Code." />
+</CardGrid>
+
+## Core Model
+
+- The Go CLI is named `miudb`.
+- Native config lives under `~/.config/miu/db`.
+- Sensitive values are classified before persistence.
+- New credentials use the `miudb` OS Keychain/keyring service by default.
+- Migrated file credentials can stay in `credentials-export.json`.
+- SSH tunnel-backed connections are first-class for TCP adapters.
+
+## Interfaces
+
+- CLI and agents use JSON envelopes on stdout.
+- MCP hosts use `miudb mcp serve --transport stdio`.
+- Neovim uses normal `.sql` buffers through `ui/miu-db.nvim`.
+- Future UIs should sit under `ui/` and call the core through the same command/protocol boundary.

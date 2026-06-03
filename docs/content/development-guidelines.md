@@ -49,5 +49,5 @@ of writing passwords inline.
 
 Agent-facing commands should keep data on stdout and diagnostics on stderr.
 JSON output should keep the envelope shape documented in
-[CLI Contract](cli-contract.md), including stable `kind`, `command`,
+[CLI Contract](/cli-contract/), including stable `kind`, `command`,
 `request_id`, `summary`, `data`, `warnings`, and structured errors.

@@ -1,4 +1,6 @@
-# miudb Daily Driver Notes
+---
+title: "miudb Daily Driver Notes"
+---
 
 miudb uses a native Go store by default:
 

@@ -1,4 +1,6 @@
-# miudb Go Preview v0.2.0-go.6
+---
+title: "miudb Go Preview v0.2.0-go.6"
+---
 
 This release updates the Go preview of miu-db as `miudb`.
 
@@ -30,7 +32,7 @@ brew install vanducng/tap/miudb
 - Adds JSON-RPC and NDJSON stdio protocol mode for future Neovim/TUI clients.
 - Moves the minimal Neovim file-buffer client scaffold under
   `ui/miu-db.nvim`.
-- Adds a Zensical documentation site deployed to `miu-db.vanducng.dev`.
+- Adds a Astro Starlight documentation site deployed to `miudb.vanducng.dev`.
 
 ## Verification
 
