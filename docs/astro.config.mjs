@@ -13,6 +13,7 @@ export default defineConfig({
   integrations: [
     starlight({
       title: 'miudb',
+      logo: { src: './src/assets/logo.svg' },
       description: 'Headless database CLI for humans and agents.',
       customCss: ['./src/styles/theme.css'],
       expressiveCode: {
