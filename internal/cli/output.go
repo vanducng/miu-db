@@ -12,6 +12,9 @@ import (
 
 const apiVersion = "miudb.cli/v1"
 
+// prettyOutput indents envelope JSON when --output pretty is set.
+var prettyOutput bool
+
 type Envelope struct {
 	OK         bool           `json:"ok"`
 	APIVersion string         `json:"api_version"`
@@ -65,6 +68,9 @@ func writeJSON(w io.Writer, env Envelope) error {
 	}
 	enc := json.NewEncoder(w)
 	enc.SetEscapeHTML(false)
+	if prettyOutput {
+		enc.SetIndent("", "  ")
+	}
 	return enc.Encode(env)
 }
 

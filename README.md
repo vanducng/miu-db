@@ -38,6 +38,18 @@ miudb version --output json
 miudb commands --output json
 ```
 
+Upgrade in place later (downloads the matching release, verifies its checksum,
+and replaces the binary):
+
+```bash
+miudb upgrade            # to the latest release
+miudb upgrade --check    # report whether a newer version exists
+miudb upgrade --version v0.2.4
+```
+
+All commands take `-o`/`--output`: `json` (default, compact) or `pretty`.
+Homebrew installs should upgrade with `brew upgrade miudb`.
+
 ## Native Store
 
 The default native config lives under:

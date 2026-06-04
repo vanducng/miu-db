@@ -67,7 +67,7 @@ func rootCommand(opts *options) *cobra.Command {
 		Use:   "miudb",
 		Short: "Fast local database CLI for agents and Neovim",
 	}
-	root.PersistentFlags().StringVar(&opts.output, "output", "json", "Output format: json")
+	root.PersistentFlags().StringVarP(&opts.output, "output", "o", "json", "Output format: json or pretty")
 	root.PersistentFlags().StringVar(&opts.connectionSource, "connection-source", config.SourceAuto, "Connection source: auto or file")
 	root.PersistentFlags().StringVar(&opts.configDir, "config-dir", config.DefaultConfigDir(), "Config directory for file source")
 	root.PersistentFlags().StringVar(&opts.connectionsPath, "connections-file", "", "Connections JSON file")
@@ -78,7 +78,19 @@ func rootCommand(opts *options) *cobra.Command {
 	root.PersistentFlags().StringVar(&opts.gopassPrefix, "gopass-prefix", "miudb", "gopass path prefix")
 	root.PersistentFlags().IntVar(&opts.limit, "limit", 100, "Maximum rows returned inline")
 	root.PersistentFlags().DurationVar(&opts.timeout, "timeout", 30*time.Second, "Connection/query timeout")
+	root.PersistentPreRunE = func(cmd *cobra.Command, args []string) error {
+		switch opts.output {
+		case "", "json":
+			prettyOutput = false
+		case "pretty":
+			prettyOutput = true
+		default:
+			return &CLIError{Code: "output.invalid_format", Message: fmt.Sprintf("unknown output format %q", opts.output), Hint: "use json or pretty", Exit: 2}
+		}
+		return nil
+	}
 	root.AddCommand(versionCommand())
+	root.AddCommand(upgradeCommand(opts))
 	root.AddCommand(commandsCommand(opts))
 	root.AddCommand(describeCommand(opts))
 	root.AddCommand(connectionsCommand(opts))
@@ -803,6 +815,7 @@ func loadServices(opts *options) (*core.Services, error) {
 func catalog() []commandInfo {
 	return []commandInfo{
 		{Name: "commands", Summary: "List command catalog", Stability: "stable", Mutates: false, Examples: []string{"miudb commands --output json"}},
+		{Name: "upgrade", Summary: "Upgrade miudb to the latest release", Stability: "experimental", Mutates: true, SideEffects: []string{"downloads_release", "replaces_binary"}, Examples: []string{"miudb upgrade --output json", "miudb upgrade --check --output json"}},
 		{Name: "describe", Summary: "Describe a command", Stability: "stable", Mutates: false, Examples: []string{"miudb describe query run --output json"}},
 		{Name: "connections list", Summary: "List saved connections with secrets redacted", Stability: "stable", Mutates: false, Examples: []string{"miudb connections list --output json"}},
 		{Name: "connections add", Summary: "Add a native connection and store sensitive fields safely", Stability: "experimental", Mutates: true, SideEffects: []string{"writes_connections_file", "may_write_keyring", "may_write_credentials_file"}, Examples: []string{"miudb connections add --name local --db-type sqlite --path ./app.db --output json"}},
