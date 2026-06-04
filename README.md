@@ -12,28 +12,19 @@ MCP, and machine-readable output.
 
 ## Install
 
-```bash
-brew install vanducng/tap/miudb
-```
-
-Or install with Go:
-
-```bash
-go install github.com/vanducng/miu-db/cmd/miudb@v0.2.0
-```
-
-Windows release archives are published on GitHub Releases as zip files. In
-PowerShell:
-
-```powershell
-$version = "v0.2.0"
-$asset = "miudb_windows_x86_64.zip"
-Invoke-WebRequest "https://github.com/vanducng/miu-db/releases/download/$version/$asset" -OutFile $asset
-Expand-Archive $asset -DestinationPath ".\miudb" -Force
-.\miudb\miudb.exe version --output json
-```
-
-Use `miudb_windows_arm64.zip` on Windows ARM64.
+- **macOS** — Homebrew:
+  ```bash
+  brew install vanducng/tap/miudb
+  ```
+- **Linux** — Go:
+  ```bash
+  go install github.com/vanducng/miu-db/cmd/miudb@latest
+  ```
+- **Windows** — PowerShell (use `miudb_windows_arm64.zip` on ARM64):
+  ```powershell
+  Invoke-WebRequest "https://github.com/vanducng/miu-db/releases/latest/download/miudb_windows_x86_64.zip" -OutFile miudb.zip
+  Expand-Archive miudb.zip -DestinationPath .\miudb -Force
+  ```
 
 Verify:
 
