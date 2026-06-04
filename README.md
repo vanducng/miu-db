@@ -119,8 +119,37 @@ miudb mcp serve --transport stdio
 ```
 
 The MCP server exposes redacted connection inventory, schema inspection,
-bounded read-only query execution, pagination, and `miudb://` resources. See
-[docs/mcp.md](docs/mcp.md) for Codex, Claude Code, Cursor, and VS Code setup.
+bounded read-only query execution, pagination, and `miudb://` resources.
+
+### Add to a host
+
+**Claude Code** — one command:
+
+```bash
+claude mcp add --transport stdio miudb -- miudb mcp serve --transport stdio
+```
+
+**Cursor** — add to `~/.cursor/mcp.json` (global) or `.cursor/mcp.json` (project):
+
+```json
+{
+  "mcpServers": {
+    "miudb": { "command": "miudb", "args": ["mcp", "serve", "--transport", "stdio"] }
+  }
+}
+```
+
+**Codex** — add to `~/.codex/config.toml`:
+
+```toml
+[mcp_servers.miudb]
+command = "miudb"
+args = ["mcp", "serve", "--transport", "stdio"]
+```
+
+If the host can't find `miudb`, use the full path from `which miudb`. See
+[the MCP docs](https://miudb.vanducng.dev/mcp/) for VS Code, per-connection
+scoping, and tool reference.
 
 ## Development
 
@@ -130,5 +159,5 @@ go build -buildvcs=false -o ./.miu-db/miudb ./cmd/miudb
 ./.miu-db/miudb commands --output json
 ```
 
-See [docs/golang-architecture.md](docs/golang-architecture.md) and
-[docs/agent-cli.md](docs/agent-cli.md).
+See [the architecture docs](https://miudb.vanducng.dev/golang-architecture/) and
+[the agent CLI docs](https://miudb.vanducng.dev/agent-cli/).
