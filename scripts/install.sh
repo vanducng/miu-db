@@ -18,6 +18,12 @@ dl() {
   else err "need curl or wget"; fi
 }
 
+fetch() {
+  if have curl; then curl -fsSL "$1"
+  elif have wget; then wget -qO- "$1"
+  else err "need curl or wget"; fi
+}
+
 os=$(uname -s)
 case "$os" in
   Linux) os=linux ;;
@@ -33,18 +39,26 @@ case "$arch" in
 esac
 
 asset="${BIN}_${os}_${arch}.tar.gz"
-if [ "$MIUDB_VERSION" = latest ]; then
+
+# Resolve "latest" to a concrete tag so the asset and checksums come from the
+# same immutable release (releases/latest/download races during a release).
+version="$MIUDB_VERSION"
+if [ "$version" = latest ]; then
+  tag=$(fetch "https://api.github.com/repos/${REPO}/releases/latest" 2>/dev/null | grep '"tag_name"' | head -1 | cut -d'"' -f4)
+  [ -n "$tag" ] && version="$tag"
+fi
+if [ "$version" = latest ]; then
   base="https://github.com/${REPO}/releases/latest/download"
 else
-  base="https://github.com/${REPO}/releases/download/${MIUDB_VERSION}"
+  base="https://github.com/${REPO}/releases/download/${version}"
 fi
 
 tmp=$(mktemp -d)
 trap 'rm -rf "$tmp"' EXIT
 
-printf 'Downloading %s (%s)...\n' "$asset" "$MIUDB_VERSION"
+printf 'Downloading %s (%s)...\n' "$asset" "$version"
 dl "${base}/${asset}" "${tmp}/${asset}" ||
-  err "download failed — check that release '${MIUDB_VERSION}' has ${asset}"
+  err "download failed — check that release '${version}' has ${asset}"
 
 if dl "${base}/checksums.txt" "${tmp}/checksums.txt" 2>/dev/null; then
   sum=""

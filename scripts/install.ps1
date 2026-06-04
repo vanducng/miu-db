@@ -21,6 +21,15 @@ $arch = switch ($env:PROCESSOR_ARCHITECTURE) {
 }
 
 $asset = "${bin}_windows_${arch}.zip"
+
+# Resolve "latest" to a concrete tag so the asset and checksums come from the
+# same immutable release (releases/latest/download races during a release).
+if ($version -eq 'latest') {
+  try {
+    $rel = Invoke-RestMethod -Uri "https://api.github.com/repos/$repo/releases/latest" -Headers @{ 'User-Agent' = 'miudb-install' } -UseBasicParsing
+    if ($rel.tag_name) { $version = $rel.tag_name }
+  } catch {}
+}
 $base = if ($version -eq 'latest') {
   "https://github.com/$repo/releases/latest/download"
 } else {
