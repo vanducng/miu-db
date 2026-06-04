@@ -274,6 +274,103 @@ func (s *Store) save() error {
 	return os.WriteFile(s.ConnectionsPath, append(data, '\n'), 0o600)
 }
 
+type ImportOptions struct {
+	DryRun bool
+}
+
+type ImportResult struct {
+	Total       int      `json:"total"`
+	Added       []string `json:"added"`
+	Overwritten []string `json:"overwritten"`
+	BackupPath  string   `json:"backup_path,omitempty"`
+	DryRun      bool     `json:"dry_run"`
+}
+
+// LoadConnectionsFile parses a connections JSON file in Root, list, or payload form.
+func LoadConnectionsFile(path string) ([]Connection, error) {
+	root, err := loadRoot(path)
+	if err != nil {
+		return nil, err
+	}
+	return root.Connections, nil
+}
+
+// Import merges connections by name, overwriting same-named entries, and backs
+// up the existing connections file before writing. Secrets are imported as-is.
+func (s *Store) Import(conns []Connection, opts ImportOptions) (ImportResult, error) {
+	res := ImportResult{Total: len(conns), Added: []string{}, Overwritten: []string{}, DryRun: opts.DryRun}
+	if len(conns) == 0 {
+		return res, fmt.Errorf("no connections to import")
+	}
+	for _, conn := range conns {
+		if strings.TrimSpace(conn.Name) == "" {
+			return res, fmt.Errorf("imported connection is missing a name")
+		}
+		if strings.TrimSpace(conn.DBType) == "" {
+			return res, fmt.Errorf("imported connection %q is missing db_type", conn.Name)
+		}
+	}
+
+	merged := make([]Connection, len(s.root.Connections))
+	copy(merged, s.root.Connections)
+	index := make(map[string]int, len(merged))
+	for i, conn := range merged {
+		index[conn.Name] = i
+	}
+	for _, conn := range conns {
+		if i, ok := index[conn.Name]; ok {
+			merged[i] = conn
+			res.Overwritten = append(res.Overwritten, conn.Name)
+		} else {
+			index[conn.Name] = len(merged)
+			merged = append(merged, conn)
+			res.Added = append(res.Added, conn.Name)
+		}
+	}
+
+	if opts.DryRun {
+		return res, nil
+	}
+
+	if _, err := os.Stat(s.ConnectionsPath); err == nil {
+		backup, err := backupFile(s.ConnectionsPath)
+		if err != nil {
+			return res, err
+		}
+		res.BackupPath = backup
+	} else if !errors.Is(err, os.ErrNotExist) {
+		return res, err
+	}
+
+	s.root.Connections = merged
+	if s.root.Version == 0 {
+		s.root.Version = 1
+	}
+	if err := s.save(); err != nil {
+		return res, err
+	}
+	return res, nil
+}
+
+func backupFile(path string) (string, error) {
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return "", err
+	}
+	stamp := time.Now().Format("20060102-150405")
+	backup := fmt.Sprintf("%s.bak-%s", path, stamp)
+	for i := 1; ; i++ {
+		if _, err := os.Stat(backup); errors.Is(err, os.ErrNotExist) {
+			break
+		}
+		backup = fmt.Sprintf("%s.bak-%s-%d", path, stamp, i)
+	}
+	if err := os.WriteFile(backup, data, 0o600); err != nil {
+		return "", err
+	}
+	return backup, nil
+}
+
 func (s *Store) persistSecrets(conn Connection, opts AddOptions) (Connection, error) {
 	store := strings.ToLower(strings.TrimSpace(opts.SecretStore))
 	if store == "" {

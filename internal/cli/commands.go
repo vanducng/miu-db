@@ -157,6 +157,7 @@ func connectionsCommand(opts *options) *cobra.Command {
 		},
 	})
 	cmd.AddCommand(connectionAddCommand(opts))
+	cmd.AddCommand(connectionImportCommand(opts))
 	cmd.AddCommand(&cobra.Command{
 		Use:   "test <name>",
 		Short: "Test a connection",
@@ -272,6 +273,59 @@ func connectionAddCommand(opts *options) *cobra.Command {
 	add.Flags().StringVar(&sshKeyPath, "ssh-key-path", "", "SSH private key path")
 	add.Flags().StringVar(&sshConfigAlias, "ssh-config-alias", "", "SSH config alias")
 	return add
+}
+
+func connectionImportCommand(opts *options) *cobra.Command {
+	var dryRun bool
+	cmd := &cobra.Command{
+		Use:   "import <file>",
+		Short: "Import connections from a file; backs up and overwrites existing entries",
+		Args:  cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			conns, err := config.LoadConnectionsFile(args[0])
+			if err != nil {
+				return &CLIError{Code: "connection.import_unreadable", Message: fmt.Sprintf("cannot read connections file: %v", err), Exit: 2}
+			}
+			if len(conns) == 0 {
+				return &CLIError{Code: "connection.import_empty", Message: "no connections found in file", Exit: 2}
+			}
+			store, err := loadStoreAllowMissing(opts)
+			if err != nil {
+				return err
+			}
+			res, err := store.Import(conns, config.ImportOptions{DryRun: dryRun})
+			if err != nil {
+				return err
+			}
+			summary := map[string]any{
+				"imported":    res.Total,
+				"added":       len(res.Added),
+				"overwritten": len(res.Overwritten),
+				"dry_run":     res.DryRun,
+				"store":       store.Info(),
+			}
+			if res.BackupPath != "" {
+				summary["backup_path"] = res.BackupPath
+			}
+			warnings := []any{}
+			for _, name := range res.Overwritten {
+				warnings = append(warnings, map[string]any{"code": "connection.overwritten", "message": fmt.Sprintf("overwrote existing connection %q", name)})
+			}
+			if res.BackupPath != "" {
+				warnings = append(warnings, map[string]any{"code": "connection.backup_created", "message": "previous connections file backed up", "path": res.BackupPath})
+			}
+			return writeJSON(cmd.OutOrStdout(), Envelope{
+				OK:       true,
+				Kind:     "connection.imported",
+				Command:  "connections import",
+				Summary:  summary,
+				Data:     res,
+				Warnings: warnings,
+			})
+		},
+	}
+	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "Preview changes without writing or backing up")
+	return cmd
 }
 
 func parseOptionFlags(values []string) (map[string]any, error) {
@@ -752,6 +806,7 @@ func catalog() []commandInfo {
 		{Name: "describe", Summary: "Describe a command", Stability: "stable", Mutates: false, Examples: []string{"miudb describe query run --output json"}},
 		{Name: "connections list", Summary: "List saved connections with secrets redacted", Stability: "stable", Mutates: false, Examples: []string{"miudb connections list --output json"}},
 		{Name: "connections add", Summary: "Add a native connection and store sensitive fields safely", Stability: "experimental", Mutates: true, SideEffects: []string{"writes_connections_file", "may_write_keyring", "may_write_credentials_file"}, Examples: []string{"miudb connections add --name local --db-type sqlite --path ./app.db --output json"}},
+		{Name: "connections import", Summary: "Import connections from a file; backs up and overwrites existing entries", Stability: "experimental", Mutates: true, SideEffects: []string{"writes_connections_file", "backs_up_connections_file"}, Examples: []string{"miudb connections import ./shared-connections.json --output json", "miudb connections import ./shared.json --dry-run --output json"}},
 		{Name: "connections test", Summary: "Test one connection", Stability: "experimental", Mutates: false, SideEffects: []string{"opens_connection", "may_create_tunnel"}},
 		{Name: "connections smoke", Summary: "Run a bounded smoke query across saved connections", Stability: "experimental", Mutates: false, SideEffects: []string{"opens_connections", "may_create_tunnels"}, Examples: []string{"miudb connections smoke --timeout 12s --concurrency 4 --output json"}},
 		{Name: "query run", Summary: "Run SQL against a saved connection", Stability: "experimental", Mutates: false, SideEffects: []string{"opens_connection", "may_create_tunnel", "may_write_page_store"}},

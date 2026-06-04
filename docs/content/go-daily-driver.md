@@ -71,6 +71,23 @@ miudb connections add \
   --output json
 ```
 
+## Import / Share
+
+Share a connections JSON file and import it on the target machine. Import merges
+by name, overwrites matching entries, and backs up the existing
+`connections.json` to `connections.json.bak-<timestamp>` before writing.
+
+```bash
+miudb connections import ./shared-connections.json --dry-run --output json
+miudb connections import ./shared-connections.json --output json
+```
+
+:::caution
+Secrets are imported verbatim. A file with inline passwords is self-contained
+and needs no keyring setup on the target, but it carries plaintext credentials —
+keep it mode `0600` and share over a secure channel only.
+:::
+
 ## Query
 
 ```bash
