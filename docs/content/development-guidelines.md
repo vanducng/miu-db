@@ -40,10 +40,12 @@ luac -p ui/miu-db.nvim/lua/miu_db/*.lua ui/miu-db.nvim/plugin/miu_db.lua
 
 ## Secrets
 
+:::danger
 Never log or serialize raw credentials. Use the redaction helpers in
 `internal/config` for CLI errors, connection output, and diagnostics. New
 connections should store sensitive fields through `SecretRef` providers instead
 of writing passwords inline.
+:::
 
 ## Output Contract
 

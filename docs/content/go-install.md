@@ -29,11 +29,13 @@ Expand-Archive $asset -DestinationPath ".\miudb" -Force
 
 Use `miudb_windows_arm64.zip` on Windows ARM64.
 
+:::tip
 Make sure your Go bin directory is on `PATH` when using `go install`:
 
 ```bash
 export PATH="$(go env GOPATH)/bin:$PATH"
 ```
+:::
 
 Verify:
 

@@ -21,9 +21,11 @@ miudb connections list --output json
 miudb connections smoke --timeout 20s --concurrency 4 --output json
 ```
 
+:::note
 Local-only connections are expected to fail when their databases are not
 running. Remote and tunnel-backed failures should be compared against the same
 network path from a known-good client before treating them as miudb regressions.
+:::
 
 ## Add Connections
 

@@ -53,7 +53,9 @@ The docs workflow builds `docs/` with `withastro/action` (custom domain from
 The Homebrew and `go install` artifacts include the local stdio MCP server; no
 extra runtime dependencies are required after `miudb` is on `PATH`.
 
-Before release, verify:
+:::caution[Verify before release]
+Run these checks before cutting a release; the MCP transport check must exit with code 2.
+:::
 
 ```bash
 go test ./...

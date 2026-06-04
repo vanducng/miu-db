@@ -14,6 +14,8 @@ export default defineConfig({
     starlight({
       title: 'miudb',
       logo: { src: './src/assets/logo.svg' },
+      // Apply Starlight's markdown pipeline (asides, heading links) to the custom-loader content/ dir.
+      markdown: { processedDirs: ['./content'] },
       description: 'Headless database CLI for humans and agents.',
       customCss: ['./src/styles/theme.css'],
       expressiveCode: {
@@ -41,6 +43,14 @@ export default defineConfig({
           items: ['system-architecture', 'golang-architecture', 'tech-stack', 'cloud-adapters'],
         },
         { label: 'Operations', items: ['deployment', 'development-guidelines', 'go-release'] },
+        {
+          label: 'Related docs',
+          items: [
+            { label: 'dotfiles', link: 'https://dotfiles.vanducng.dev', attrs: { target: '_blank' } },
+            { label: 'skills', link: 'https://skills.vanducng.dev', attrs: { target: '_blank' } },
+            { label: 'vd-cli', link: 'https://vd-cli.vanducng.dev', attrs: { target: '_blank' } },
+          ],
+        },
       ],
     }),
     react(),

@@ -26,8 +26,10 @@ Useful flags:
 - `--allow-mutate`: permit mutation SQL through `query_run`; unsafe and off by
   default.
 
+:::note[Important]
 Stdout is reserved for MCP protocol frames. Diagnostics, startup errors, and
 SDK logs go to stderr.
+:::
 
 ## Safety Model
 
