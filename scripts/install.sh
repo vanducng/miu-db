@@ -1,6 +1,6 @@
 #!/bin/sh
 # Install miudb. Auto-detects OS/arch and fetches the matching release binary.
-# Usage: curl -fsSL https://raw.githubusercontent.com/vanducng/miu-db/main/install.sh | sh
+# Usage: curl -fsSL https://raw.githubusercontent.com/vanducng/miu-db/main/scripts/install.sh | sh
 # Env:   MIUDB_VERSION=v0.2.4   MIUDB_INSTALL_DIR=/usr/local/bin
 set -eu
 
