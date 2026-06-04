@@ -264,7 +264,8 @@ func connectionAddCommand(opts *options) *cobra.Command {
 	}
 	add.Flags().StringVar(&conn.Name, "name", "", "Connection name")
 	add.Flags().StringVar(&conn.DBType, "db-type", "", "Database type")
-	add.Flags().StringVar(&conn.FolderPath, "folder", "", "Connection folder")
+	add.Flags().StringVar(&conn.Group, "group", "", "Connection group; supports nested paths, e.g. team/project")
+	add.Flags().StringVar(&conn.Group, "folder", "", "Deprecated alias for --group")
 	add.Flags().StringVar(&conn.ConnectionURL, "url", "", "Connection URL")
 	add.Flags().StringVar(&conn.Endpoint.Kind, "kind", "", "Endpoint kind: tcp or file")
 	add.Flags().StringVar(&conn.Endpoint.Host, "host", "", "Database host")

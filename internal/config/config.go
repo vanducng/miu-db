@@ -1,6 +1,7 @@
 package config
 
 import (
+	"encoding/json"
 	"fmt"
 	"strings"
 )
@@ -15,12 +16,29 @@ type Connection struct {
 	DBType        string            `json:"db_type"`
 	Source        string            `json:"source,omitempty"`
 	ConnectionURL string            `json:"connection_url,omitempty"`
-	FolderPath    string            `json:"folder_path,omitempty"`
+	Group         string            `json:"group,omitempty"`
 	ExtraOptions  map[string]string `json:"extra_options,omitempty"`
 	Options       map[string]any    `json:"options,omitempty"`
 	Endpoint      Endpoint          `json:"endpoint"`
 	Tunnel        *Tunnel           `json:"tunnel,omitempty"`
 	Secrets       []SecretRef       `json:"secrets,omitempty"`
+}
+
+// UnmarshalJSON reads the legacy "folder_path" key into Group for backward
+// compatibility; re-saving emits "group".
+func (c *Connection) UnmarshalJSON(data []byte) error {
+	type connectionAlias Connection
+	aux := struct {
+		*connectionAlias
+		LegacyFolderPath string `json:"folder_path,omitempty"`
+	}{connectionAlias: (*connectionAlias)(c)}
+	if err := json.Unmarshal(data, &aux); err != nil {
+		return err
+	}
+	if c.Group == "" {
+		c.Group = aux.LegacyFolderPath
+	}
+	return nil
 }
 
 type Endpoint struct {
@@ -96,12 +114,12 @@ func RedactedConnection(conn Connection) map[string]any {
 		}
 	}
 	return map[string]any{
-		"name":        conn.Name,
-		"db_type":     conn.DBType,
-		"folder_path": conn.FolderPath,
-		"endpoint":    endpoint,
-		"tunnel":      tunnel,
-		"options":     RedactOptions(conn.Options),
+		"name":     conn.Name,
+		"db_type":  conn.DBType,
+		"group":    conn.Group,
+		"endpoint": endpoint,
+		"tunnel":   tunnel,
+		"options":  RedactOptions(conn.Options),
 	}
 }
 
