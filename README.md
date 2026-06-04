@@ -12,14 +12,16 @@ MCP, and machine-readable output.
 
 ## Install
 
-- **macOS** — Homebrew:
-  ```bash
-  brew install vanducng/tap/miudb
-  ```
-- **Linux** — Go:
-  ```bash
-  go install github.com/vanducng/miu-db/cmd/miudb@latest
-  ```
+macOS and Linux — one command, auto-detects OS and architecture:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/vanducng/miu-db/main/install.sh | sh
+```
+
+Other options:
+
+- **Homebrew** — `brew install vanducng/tap/miudb`
+- **Go** — `go install github.com/vanducng/miu-db/cmd/miudb@latest`
 - **Windows** — PowerShell (use `miudb_windows_arm64.zip` on ARM64):
   ```powershell
   Invoke-WebRequest "https://github.com/vanducng/miu-db/releases/latest/download/miudb_windows_x86_64.zip" -OutFile miudb.zip
