@@ -67,6 +67,142 @@ func TestConnectionsAddAcceptsProviderOptions(t *testing.T) {
 	}
 }
 
+func runCLI(t *testing.T, args ...string) map[string]any {
+	t.Helper()
+	opts := &options{output: "json", limit: 100}
+	cmd := rootCommand(opts)
+	var out bytes.Buffer
+	cmd.SetOut(&out)
+	cmd.SetArgs(args)
+	cmd.SilenceUsage = true
+	cmd.SilenceErrors = true
+	if err := cmd.Execute(); err != nil {
+		t.Fatalf("command %v failed: %v", args, err)
+	}
+	var env map[string]any
+	if err := json.Unmarshal(out.Bytes(), &env); err != nil {
+		t.Fatalf("decode envelope: %v\n%s", err, out.String())
+	}
+	return env
+}
+
+func writeConnectionsFile(t *testing.T, path string, conns ...config.Connection) {
+	t.Helper()
+	root := config.Root{Version: 2, Connections: conns}
+	data, err := json.MarshalIndent(root, "", "  ")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(path, data, 0o600); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestConnectionsImportBacksUpAndOverwrites(t *testing.T) {
+	dir := t.TempDir()
+	connPath := filepath.Join(dir, "connections.json")
+	writeConnectionsFile(t, connPath,
+		config.Connection{Name: "keep", DBType: "sqlite", Endpoint: config.Endpoint{Kind: "file", Path: "/tmp/keep.db"}},
+		config.Connection{Name: "shared", DBType: "postgresql", Endpoint: config.Endpoint{Kind: "tcp", Host: "old-host", Username: "old"}},
+	)
+	srcPath := filepath.Join(dir, "incoming.json")
+	writeConnectionsFile(t, srcPath,
+		config.Connection{Name: "shared", DBType: "postgresql", Endpoint: config.Endpoint{Kind: "tcp", Host: "new-host", Username: "new", Password: "pw"}},
+		config.Connection{Name: "fresh", DBType: "mysql", Endpoint: config.Endpoint{Kind: "tcp", Host: "fresh-host", Username: "u", Password: "pw"}},
+	)
+
+	env := runCLI(t, "--config-dir", dir, "connections", "import", srcPath)
+	if ok, _ := env["ok"].(bool); !ok {
+		t.Fatalf("import not ok: %v", env)
+	}
+	summary, _ := env["summary"].(map[string]any)
+	if summary["added"].(float64) != 1 || summary["overwritten"].(float64) != 1 || summary["imported"].(float64) != 2 {
+		t.Fatalf("unexpected summary: %v", summary)
+	}
+	backup, _ := summary["backup_path"].(string)
+	if backup == "" {
+		t.Fatal("expected backup_path in summary")
+	}
+	if _, err := os.Stat(backup); err != nil {
+		t.Fatalf("backup file missing: %v", err)
+	}
+
+	raw, err := os.ReadFile(connPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var root config.Root
+	if err := json.Unmarshal(raw, &root); err != nil {
+		t.Fatal(err)
+	}
+	if len(root.Connections) != 3 {
+		t.Fatalf("expected 3 connections after merge, got %d", len(root.Connections))
+	}
+	byName := map[string]config.Connection{}
+	for _, c := range root.Connections {
+		byName[c.Name] = c
+	}
+	if byName["shared"].Endpoint.Host != "new-host" {
+		t.Fatalf("shared connection not overwritten: %+v", byName["shared"].Endpoint)
+	}
+	if _, ok := byName["keep"]; !ok {
+		t.Fatal("existing connection 'keep' was dropped")
+	}
+	if _, ok := byName["fresh"]; !ok {
+		t.Fatal("new connection 'fresh' was not added")
+	}
+}
+
+func TestConnectionsImportDryRunDoesNotWrite(t *testing.T) {
+	dir := t.TempDir()
+	connPath := filepath.Join(dir, "connections.json")
+	writeConnectionsFile(t, connPath,
+		config.Connection{Name: "keep", DBType: "sqlite", Endpoint: config.Endpoint{Kind: "file", Path: "/tmp/keep.db"}},
+	)
+	before, err := os.ReadFile(connPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	srcPath := filepath.Join(dir, "incoming.json")
+	writeConnectionsFile(t, srcPath,
+		config.Connection{Name: "fresh", DBType: "mysql", Endpoint: config.Endpoint{Kind: "tcp", Host: "h", Username: "u", Password: "pw"}},
+	)
+
+	env := runCLI(t, "--config-dir", dir, "connections", "import", srcPath, "--dry-run")
+	summary, _ := env["summary"].(map[string]any)
+	if summary["dry_run"].(bool) != true || summary["added"].(float64) != 1 {
+		t.Fatalf("unexpected dry-run summary: %v", summary)
+	}
+	if _, ok := summary["backup_path"]; ok {
+		t.Fatal("dry-run should not produce a backup")
+	}
+	after, err := os.ReadFile(connPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(before) != string(after) {
+		t.Fatal("dry-run modified connections.json")
+	}
+}
+
+func TestConnectionsImportRejectsEmptyFile(t *testing.T) {
+	dir := t.TempDir()
+	srcPath := filepath.Join(dir, "empty.json")
+	if err := os.WriteFile(srcPath, []byte(`{"version":2,"connections":[]}`), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	opts := &options{output: "json", limit: 100}
+	cmd := rootCommand(opts)
+	var out bytes.Buffer
+	cmd.SetOut(&out)
+	cmd.SetArgs([]string{"--config-dir", dir, "connections", "import", srcPath})
+	cmd.SilenceUsage = true
+	cmd.SilenceErrors = true
+	if err := cmd.Execute(); err == nil {
+		t.Fatal("expected error for empty import file")
+	}
+}
+
 func TestMCPServeRejectsUnsupportedTransport(t *testing.T) {
 	dir := t.TempDir()
 	opts := &options{output: "json", limit: 100}

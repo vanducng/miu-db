@@ -82,6 +82,22 @@ If `credentials.json` is absent, `miudb` also reads an existing
 Future secret providers can plug into the same `SecretRef` model, including
 1Password and Bitwarden.
 
+## Share and Import
+
+To onboard a new machine or teammate, share a connections JSON file and import
+it. Import merges by name: matching connections are overwritten and the existing
+`connections.json` is backed up first to `connections.json.bak-<timestamp>`.
+
+```bash
+miudb connections import ./shared-connections.json --output json
+miudb connections import ./shared-connections.json --dry-run --output json
+```
+
+Secrets are imported as they appear in the file. A self-contained file with
+inline passwords needs no extra setup on the target machine; treat it as a
+secret (mode `0600`, secure channel only). Use `--dry-run` to preview the
+added/overwritten connections before writing.
+
 ## Adapters
 
 Daily-driver adapters:
