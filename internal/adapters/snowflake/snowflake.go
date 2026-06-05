@@ -24,7 +24,14 @@ func New() Provider { return Provider{} }
 
 func (Provider) Type() string { return "snowflake" }
 
-func (p Provider) Open(ctx context.Context, conn config.Connection) (*adapter.Session, error) {
+// SessionKeys are the per-call --session keys Snowflake accepts. They match the
+// conn.Options keys buildConfig reads and map to gosnowflake.Config at connect
+// time (no USE ROLE statement). Auth keys are intentionally excluded.
+func (Provider) SessionKeys() []string {
+	return []string{"role", "warehouse", "database", "schema"}
+}
+
+func buildConfig(conn config.Connection) (*gosnowflake.Config, error) {
 	cfg := &gosnowflake.Config{
 		Account:          conn.Endpoint.Host,
 		User:             conn.Endpoint.Username,
@@ -33,13 +40,16 @@ func (p Provider) Open(ctx context.Context, conn config.Connection) (*adapter.Se
 		Application:      "miudb",
 		DisableTelemetry: true,
 	}
-	if v, ok := conn.Options["warehouse"].(string); ok {
+	if v, ok := conn.Options["database"].(string); ok && v != "" {
+		cfg.Database = v
+	}
+	if v, ok := conn.Options["warehouse"].(string); ok && v != "" {
 		cfg.Warehouse = v
 	}
-	if v, ok := conn.Options["schema"].(string); ok {
+	if v, ok := conn.Options["schema"].(string); ok && v != "" {
 		cfg.Schema = v
 	}
-	if v, ok := conn.Options["role"].(string); ok {
+	if v, ok := conn.Options["role"].(string); ok && v != "" {
 		cfg.Role = v
 	}
 	if auth, ok := conn.Options["authenticator"].(string); ok && strings.EqualFold(auth, "snowflake_jwt") {
@@ -50,6 +60,14 @@ func (p Provider) Open(ctx context.Context, conn config.Connection) (*adapter.Se
 			return nil, err
 		}
 		cfg.PrivateKey = key
+	}
+	return cfg, nil
+}
+
+func (p Provider) Open(ctx context.Context, conn config.Connection) (*adapter.Session, error) {
+	cfg, err := buildConfig(conn)
+	if err != nil {
+		return nil, err
 	}
 	dsn, err := gosnowflake.DSN(cfg)
 	if err != nil {

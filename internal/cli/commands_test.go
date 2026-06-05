@@ -7,6 +7,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/vanducng/miu-db/internal/config"
@@ -95,6 +96,46 @@ func writeConnectionsFile(t *testing.T, path string, conns ...config.Connection)
 	}
 	if err := os.WriteFile(path, data, 0o600); err != nil {
 		t.Fatal(err)
+	}
+}
+
+func TestQueryRunRejectsUnsupportedSessionKey(t *testing.T) {
+	dir := t.TempDir()
+	connPath := filepath.Join(dir, "connections.json")
+	writeConnectionsFile(t, connPath,
+		config.Connection{Name: "lite", DBType: "sqlite", Endpoint: config.Endpoint{Kind: "file", Path: filepath.Join(dir, "app.db")}},
+	)
+
+	opts := &options{output: "json", limit: 100}
+	cmd := rootCommand(opts)
+	var out bytes.Buffer
+	cmd.SetOut(&out)
+	cmd.SetArgs([]string{
+		"--config-dir", dir,
+		"query", "run",
+		"--connection", "lite",
+		"--sql", "select 1",
+		"--session", "role=x",
+	})
+	cmd.SilenceUsage = true
+	cmd.SilenceErrors = true
+
+	err := cmd.Execute()
+	if err == nil {
+		t.Fatal("expected error for unsupported session key")
+	}
+	var cliErr *CLIError
+	if !errors.As(err, &cliErr) {
+		t.Fatalf("expected *CLIError, got %T: %v", err, err)
+	}
+	if cliErr.Code != "query.unsupported_session_key" {
+		t.Fatalf("expected code query.unsupported_session_key, got %q", cliErr.Code)
+	}
+	if cliErr.Exit != 2 {
+		t.Fatalf("expected exit 2, got %d", cliErr.Exit)
+	}
+	if !strings.Contains(cliErr.Message, "accepts no session keys") {
+		t.Fatalf("expected 'accepts no session keys' in message, got %q", cliErr.Message)
 	}
 }
 

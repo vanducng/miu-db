@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"strconv"
 	"strings"
 	"time"
 
@@ -23,6 +24,41 @@ func New() Provider { return Provider{} }
 
 func (Provider) Type() string { return "bigquery" }
 
+// SessionKeys are the per-call --session keys BigQuery accepts. They reuse the
+// existing bigquery_ option convention and map to job/client config, not SQL.
+func (Provider) SessionKeys() []string {
+	return []string{"bigquery_location", "bigquery_maximum_bytes_billed"}
+}
+
+func applySession(q *gcbq.Query, opts map[string]any) error {
+	if loc, ok := opts["bigquery_location"].(string); ok && loc != "" {
+		q.Location = loc
+	}
+	if raw, ok := opts["bigquery_maximum_bytes_billed"]; ok {
+		n, err := toInt64(raw)
+		if err != nil {
+			return fmt.Errorf("bigquery_maximum_bytes_billed: %w", err)
+		}
+		q.MaxBytesBilled = n
+	}
+	return nil
+}
+
+func toInt64(v any) (int64, error) {
+	switch t := v.(type) {
+	case string:
+		return strconv.ParseInt(strings.TrimSpace(t), 10, 64)
+	case int:
+		return int64(t), nil
+	case int64:
+		return t, nil
+	case float64:
+		return int64(t), nil
+	default:
+		return 0, fmt.Errorf("expected integer, got %T", v)
+	}
+}
+
 func (p Provider) Open(ctx context.Context, conn config.Connection) (*adapter.Session, error) {
 	project := conn.Endpoint.Host
 	if project == "" {
@@ -37,8 +73,9 @@ func (p Provider) Open(ctx context.Context, conn config.Connection) (*adapter.Se
 		return nil, err
 	}
 	q := client.Query("SELECT 1")
-	if loc, ok := conn.Options["bigquery_location"].(string); ok {
-		q.Location = loc
+	if err := applySession(q, conn.Options); err != nil {
+		_ = client.Close()
+		return nil, err
 	}
 	it, err := q.Read(ctx)
 	if err != nil {
@@ -68,8 +105,8 @@ func (Provider) Query(ctx context.Context, session *adapter.Session, query strin
 	}
 	defer client.Close()
 	q := client.Query(query)
-	if loc, ok := session.Config.Options["bigquery_location"].(string); ok {
-		q.Location = loc
+	if err := applySession(q, session.Config.Options); err != nil {
+		return result.QueryResult{}, nil, err
 	}
 	it, err := q.Read(ctx)
 	if err != nil {

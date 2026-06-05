@@ -26,6 +26,13 @@ type Execer interface {
 	Exec(ctx context.Context, session *Session, query string) (int64, error)
 }
 
+// SessionConfigurable is implemented by providers that accept per-call session
+// context keys (e.g. Snowflake role/warehouse). Returned keys must match the
+// conn.Options key names the provider's Open/Query already reads.
+type SessionConfigurable interface {
+	SessionKeys() []string
+}
+
 type Registry struct {
 	providers map[string]Provider
 }

@@ -33,26 +33,7 @@ func (p Provider) Open(ctx context.Context, conn config.Connection) (*adapter.Se
 		targetHost, targetPort = forward.Host, forward.Port
 		closer = forward.Close
 	}
-	dsn := conn.ConnectionURL
-	if dsn == "" || conn.Endpoint.Password != "" || conn.Tunnel != nil && conn.Tunnel.Enabled {
-		u := &url.URL{
-			Scheme: "postgres",
-			User:   url.UserPassword(conn.Endpoint.Username, conn.Endpoint.Password),
-			Host:   net.JoinHostPort(targetHost, targetPort),
-			Path:   conn.Endpoint.Database,
-		}
-		q := u.Query()
-		sslMode := "prefer"
-		if v, ok := conn.Options["tls_mode"].(string); ok && v != "" {
-			sslMode = v
-		}
-		if conn.ExtraOptions != nil && conn.ExtraOptions["sslmode"] != "" {
-			sslMode = conn.ExtraOptions["sslmode"]
-		}
-		q.Set("sslmode", sslMode)
-		u.RawQuery = q.Encode()
-		dsn = u.String()
-	}
+	dsn := buildDSN(conn, targetHost, targetPort)
 	db, err := sql.Open("pgx", dsn)
 	if err != nil {
 		_ = closer()
@@ -64,6 +45,76 @@ func (p Provider) Open(ctx context.Context, conn config.Connection) (*adapter.Se
 		return nil, err
 	}
 	return &adapter.Session{DB: db, Closer: closer, Provider: p, Config: conn}, nil
+}
+
+// SessionKeys are the per-call --session keys Postgres accepts. application_name
+// maps to a direct DSN param; role/search_path/statement_timeout map to GUCs via
+// the connect-time "options=-c key=value" param (no post-connect statement).
+func (Provider) SessionKeys() []string {
+	return []string{"role", "search_path", "statement_timeout", "application_name"}
+}
+
+func buildDSN(conn config.Connection, host, port string) string {
+	useRaw := conn.ConnectionURL != "" && conn.Endpoint.Password == "" && (conn.Tunnel == nil || !conn.Tunnel.Enabled)
+	if useRaw {
+		// Don't silently drop --session: overlay GUCs onto the saved URL.
+		if !hasPGSessionOptions(conn.Options) {
+			return conn.ConnectionURL
+		}
+		if u, err := url.Parse(conn.ConnectionURL); err == nil {
+			q := u.Query()
+			applyPGSessionOptions(q, conn.Options)
+			u.RawQuery = q.Encode()
+			return u.String()
+		}
+		return conn.ConnectionURL
+	}
+	u := &url.URL{
+		Scheme: "postgres",
+		User:   url.UserPassword(conn.Endpoint.Username, conn.Endpoint.Password),
+		Host:   net.JoinHostPort(host, port),
+		Path:   conn.Endpoint.Database,
+	}
+	q := u.Query()
+	sslMode := "prefer"
+	if v, ok := conn.Options["tls_mode"].(string); ok && v != "" {
+		sslMode = v
+	}
+	if conn.ExtraOptions != nil && conn.ExtraOptions["sslmode"] != "" {
+		sslMode = conn.ExtraOptions["sslmode"]
+	}
+	q.Set("sslmode", sslMode)
+	applyPGSessionOptions(q, conn.Options)
+	u.RawQuery = q.Encode()
+	return u.String()
+}
+
+// pgOptionEscaper backslash-escapes spaces (and backslashes) so a value never
+// splits the space-delimited libpq options string into extra -c GUCs.
+var pgOptionEscaper = strings.NewReplacer(`\`, `\\`, ` `, `\ `)
+
+func hasPGSessionOptions(opts map[string]any) bool {
+	for _, key := range []string{"role", "search_path", "statement_timeout", "application_name"} {
+		if v, ok := opts[key].(string); ok && v != "" {
+			return true
+		}
+	}
+	return false
+}
+
+func applyPGSessionOptions(q url.Values, opts map[string]any) {
+	if v, ok := opts["application_name"].(string); ok && v != "" {
+		q.Set("application_name", v)
+	}
+	var cOpts []string
+	for _, key := range []string{"role", "search_path", "statement_timeout"} {
+		if v, ok := opts[key].(string); ok && v != "" {
+			cOpts = append(cOpts, "-c "+key+"="+pgOptionEscaper.Replace(v))
+		}
+	}
+	if len(cOpts) > 0 {
+		q.Set("options", strings.Join(cOpts, " "))
+	}
 }
 
 func (Provider) BuildSelect(table string, limit int) string {

@@ -612,9 +612,11 @@ func errorInfo(err error) ErrorInfo {
 func queryCommand(opts *options) *cobra.Command {
 	cmd := &cobra.Command{Use: "query", Short: "Run queries"}
 	var connectionName, sqlText, cursor string
+	var sessionFlags []string
 	run := &cobra.Command{
 		Use:   "run",
 		Short: "Run SQL",
+		Long:  "Run SQL against a saved connection.\n\nUse --session key=value to set temporary, per-call session context (e.g. --session role=MY_ROLE for Snowflake). Keys are provider-specific, rejected when unsupported, and do not persist across calls.",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if connectionName == "" || sqlText == "" {
 				return &CLIError{Code: "query.missing_input", Message: "connection and sql are required", Exit: 2}
@@ -623,8 +625,17 @@ func queryCommand(opts *options) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			conn, outcome, err := services.RunQuery(cmd.Context(), connectionName, sqlText, opts.limit)
+			session, err := parseOptionFlags(sessionFlags)
 			if err != nil {
+				return err
+			}
+			conn, outcome, err := services.RunQueryWithSession(cmd.Context(), connectionName, sqlText, opts.limit, session)
+			if err != nil {
+				var uskErr *adapter.UnsupportedSessionKeyError
+				if errors.As(err, &uskErr) {
+					return &CLIError{Code: "query.unsupported_session_key", Message: uskErr.Error(),
+						Hint: "session keys are provider-specific; see supported keys in the message", Exit: 2}
+				}
 				if strings.Contains(err.Error(), "not found") {
 					return &CLIError{Code: "connection.not_found", Message: "connection not found", Exit: 2}
 				}
@@ -649,6 +660,7 @@ func queryCommand(opts *options) *cobra.Command {
 	}
 	run.Flags().StringVar(&connectionName, "connection", "", "Connection name")
 	run.Flags().StringVar(&sqlText, "sql", "", "SQL to run")
+	run.Flags().StringArrayVar(&sessionFlags, "session", nil, "Per-call session context as key=value (provider-specific; rejected if unsupported). Repeat for multiple.")
 	fetch := &cobra.Command{
 		Use:   "fetch-page",
 		Short: "Fetch a query result page",
