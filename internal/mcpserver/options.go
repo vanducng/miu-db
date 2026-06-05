@@ -1,6 +1,11 @@
 package mcpserver
 
-import "time"
+import (
+	"os"
+	"time"
+
+	"github.com/vanducng/miu-db/internal/activity"
+)
 
 const TransportStdio = "stdio"
 
@@ -14,6 +19,18 @@ type Options struct {
 	MaxBytes              int
 	Timeout               time.Duration
 	AllowMutations        bool
+	// SessionID is minted once per server start; zero = no activity logging.
+	SessionID string
+}
+
+// activityMeta returns a CaptureMeta for this server session.
+func (o Options) activityMeta() activity.CaptureMeta {
+	return activity.CaptureMeta{SessionID: o.SessionID, Source: "mcp"}
+}
+
+// activityEnabled reports whether activity logging is on for this server.
+func activityEnabled() bool {
+	return os.Getenv("MIUDB_ACTIVITY_LOG") != "off"
 }
 
 func (o Options) withDefaults() Options {

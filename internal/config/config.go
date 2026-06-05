@@ -22,6 +22,7 @@ type Connection struct {
 	Endpoint      Endpoint          `json:"endpoint"`
 	Tunnel        *Tunnel           `json:"tunnel,omitempty"`
 	Secrets       []SecretRef       `json:"secrets,omitempty"`
+	LogSQL        *bool             `json:"log_sql,omitempty"`
 }
 
 // UnmarshalJSON reads the legacy "folder_path" key into Group for backward

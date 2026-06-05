@@ -10,6 +10,7 @@ import (
 
 	_ "modernc.org/sqlite"
 
+	"github.com/vanducng/miu-db/internal/activity"
 	"github.com/vanducng/miu-db/internal/adapter"
 	"github.com/vanducng/miu-db/internal/adapters/sqlite"
 	"github.com/vanducng/miu-db/internal/config"
@@ -38,7 +39,7 @@ func TestSQLiteQueryPath(t *testing.T) {
 			Kind: "file",
 			Path: dbPath,
 		},
-	}, "select id, name from t order by id", 1)
+	}, "select id, name from t order by id", 1, activity.CaptureMeta{})
 	if err != nil {
 		t.Fatal(err)
 	}
