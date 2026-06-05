@@ -62,7 +62,7 @@ func registerTools(server *mcp.Server, services *core.Services, opts Options, po
 		Name:        "connections_smoke",
 		Description: "Run a small bounded smoke query across saved connections or a named subset. Use sparingly because it may open several connections.",
 	}, func(ctx context.Context, req *mcp.CallToolRequest, in connectionsSmokeInput) (*mcp.CallToolResult, connectionsSmokeOutput, error) {
-		out := smokeConnections(ctx, services, opts, policy, in)
+		out := smokeConnections(ctx, services, opts, policy, in, mcpClientName(req))
 		return nil, out, policy.enforceBytes(out)
 	})
 
@@ -73,7 +73,9 @@ func registerTools(server *mcp.Server, services *core.Services, opts Options, po
 		if err := policy.requireConnection(in.Connection); err != nil {
 			return nil, schemaTreeOutput{}, err
 		}
-		conn, data, err := services.SchemaTreeWithMeta(ctx, in.Connection, opts.activityMeta())
+		meta := opts.activityMeta()
+		meta.MCPClient = mcpClientName(req)
+		conn, data, err := services.SchemaTreeWithMeta(ctx, in.Connection, meta)
 		if err != nil {
 			return nil, schemaTreeOutput{}, policy.toolErr("schema.failed", err)
 		}
@@ -92,7 +94,9 @@ func registerTools(server *mcp.Server, services *core.Services, opts Options, po
 			return nil, queryRunOutput{}, err
 		}
 		limit := normalizeLimit(opts, in.Limit)
-		conn, outcome, err := services.RunQueryWithMeta(ctx, in.Connection, in.SQL, limit, nil, opts.activityMeta())
+		meta := opts.activityMeta()
+		meta.MCPClient = mcpClientName(req)
+		conn, outcome, err := services.RunQueryWithMeta(ctx, in.Connection, in.SQL, limit, nil, meta)
 		if err != nil {
 			return nil, queryRunOutput{}, policy.toolErr("query.failed", err)
 		}
@@ -141,7 +145,20 @@ func listConnections(services *core.Services, policy safetyPolicy) connectionsLi
 	}
 }
 
-func smokeConnections(ctx context.Context, services *core.Services, opts Options, policy safetyPolicy, in connectionsSmokeInput) connectionsSmokeOutput {
+// mcpClientName returns the connected client's name from the MCP initialize
+// handshake, or "" if unavailable. Best-effort attribution for activity events.
+func mcpClientName(req *mcp.CallToolRequest) string {
+	if req == nil || req.Session == nil {
+		return ""
+	}
+	ip := req.Session.InitializeParams()
+	if ip == nil || ip.ClientInfo == nil {
+		return ""
+	}
+	return ip.ClientInfo.Name
+}
+
+func smokeConnections(ctx context.Context, services *core.Services, opts Options, policy safetyPolicy, in connectionsSmokeInput, client string) connectionsSmokeOutput {
 	sqlText := strings.TrimSpace(in.SQL)
 	if sqlText == "" {
 		sqlText = "select 1 as one"
@@ -169,7 +186,9 @@ func smokeConnections(ctx context.Context, services *core.Services, opts Options
 			results = append(results, smokeFailure(policy, raw, err))
 			continue
 		}
-		outcome, err := services.RunQueryConnectionMeta(ctx, conn, sqlText, limit, opts.activityMeta())
+		meta := opts.activityMeta()
+		meta.MCPClient = client
+		outcome, err := services.RunQueryConnectionMeta(ctx, conn, sqlText, limit, meta)
 		if err != nil {
 			results = append(results, smokeFailure(policy, conn, err))
 			continue

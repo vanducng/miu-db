@@ -5,5 +5,5 @@ package activity
 type CaptureMeta struct {
 	SessionID string
 	Source    string // "cli" | "mcp"
-	MCPClient string // best-effort; empty until SDK exposes a stable id
+	MCPClient string // best-effort; client name from the MCP initialize handshake
 }

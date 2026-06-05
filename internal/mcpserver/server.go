@@ -54,7 +54,11 @@ func newServer(services *core.Services, opts Options, logger *slog.Logger) (*mcp
 	if opts.SessionID == "" {
 		opts.SessionID = activity.NewSessionID("mcp")
 	}
-	services.Logger = activity.New(activity.Options{Enabled: activityEnabled()})
+	// Reuse a logger already configured by the caller (correct root + enabled
+	// state); only fall back to a default when none was injected.
+	if services.Logger == nil {
+		services.Logger = activity.New(activity.Options{Enabled: activityEnabled()})
+	}
 	server := mcp.NewServer(&mcp.Implementation{
 		Name:    opts.ImplementationName,
 		Version: opts.ImplementationVersion,
