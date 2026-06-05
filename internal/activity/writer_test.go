@@ -143,6 +143,59 @@ func TestLogDisabled(t *testing.T) {
 	}
 }
 
+func readEvents(t *testing.T, path string) []Event {
+	t.Helper()
+	data, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatalf("read %s: %v", path, err)
+	}
+	var out []Event
+	for _, line := range strings.Split(strings.TrimRight(string(data), "\n"), "\n") {
+		if line == "" {
+			continue
+		}
+		var e Event
+		if err := json.Unmarshal([]byte(line), &e); err != nil {
+			t.Fatalf("unmarshal: %v", err)
+		}
+		out = append(out, e)
+	}
+	return out
+}
+
+func TestLogRetryOfChaining(t *testing.T) {
+	root := t.TempDir()
+	l := New(Options{Root: root, Enabled: true})
+	ts := "2026-06-05T10:00:00Z"
+
+	ev := func(id, conn string, failed bool) Event {
+		e := Event{EventID: id, SessionID: "s", Ts: ts, Op: OpQuery, Connection: conn}
+		if failed {
+			e.Error = &EventError{Class: "query_error", Message: "boom"}
+		}
+		return e
+	}
+
+	// connection "c": success, error, error, success, success
+	l.Log(ev("e1", "c", false))
+	l.Log(ev("e2", "c", true))
+	l.Log(ev("e3", "c", true))
+	l.Log(ev("e4", "c", false))
+	l.Log(ev("e5", "c", false))
+	// a different connection must not cross-link
+	l.Log(ev("f1", "c2", true))
+	l.Log(ev("e6", "c", false))
+
+	want := map[string]string{
+		"e1": "", "e2": "", "e3": "e2", "e4": "e3", "e5": "", "f1": "", "e6": "",
+	}
+	for _, e := range readEvents(t, filepath.Join(root, "2026-06-05", "s.jsonl")) {
+		if w, ok := want[e.EventID]; ok && e.RetryOf != w {
+			t.Errorf("%s: retry_of = %q, want %q", e.EventID, e.RetryOf, w)
+		}
+	}
+}
+
 func TestLogSanitizesTraversal(t *testing.T) {
 	root := t.TempDir()
 	l := New(Options{Root: root, Enabled: true})

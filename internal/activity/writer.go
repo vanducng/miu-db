@@ -17,6 +17,7 @@ type Logger struct {
 	root    string
 	enabled bool
 	mu      sync.Mutex
+	lastErr map[string]string // (session|connection) -> id of last errored event, for retry_of chaining
 }
 
 // Options configures a Logger.
@@ -33,7 +34,7 @@ func New(opts Options) *Logger {
 	if root == "" {
 		root = filepath.Join(config.DefaultConfigDir(), "activity")
 	}
-	return &Logger{root: root, enabled: opts.Enabled}
+	return &Logger{root: root, enabled: opts.Enabled, lastErr: map[string]string{}}
 }
 
 // NewDefault returns a Logger with default root and enabled=true.
@@ -62,6 +63,23 @@ func (l *Logger) Log(e Event) {
 
 	if !l.enabled {
 		return
+	}
+
+	// retry_of: link this event to the most recent prior errored event on the
+	// same (session, connection); a success ends the chain.
+	if e.Connection != "" {
+		if l.lastErr == nil {
+			l.lastErr = map[string]string{}
+		}
+		key := e.SessionID + "|" + e.Connection
+		if prev := l.lastErr[key]; prev != "" {
+			e.RetryOf = prev
+		}
+		if e.Error != nil {
+			l.lastErr[key] = e.EventID
+		} else {
+			delete(l.lastErr, key)
+		}
 	}
 
 	ts, err := time.Parse(time.RFC3339Nano, e.Ts)
