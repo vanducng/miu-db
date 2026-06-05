@@ -881,6 +881,8 @@ func catalog() []commandInfo {
 		{Name: "query run", Summary: "Run SQL against a saved connection", Stability: "experimental", Mutates: false, SideEffects: []string{"opens_connection", "may_create_tunnel", "may_write_page_store"}},
 		{Name: "query fetch-page", Summary: "Fetch a continued result page", Stability: "experimental", Mutates: false},
 		{Name: "schema tree", Summary: "Inspect schema objects", Stability: "experimental", Mutates: false, SideEffects: []string{"opens_connection", "may_create_tunnel"}},
+		{Name: "activity", Summary: "Query captured activity events from the per-session log", Stability: "experimental", Mutates: false, Examples: []string{"miudb activity --connection myconn --since 24h --output json", "miudb activity --failed --since 7d --output json"}},
+		{Name: "activity prune", Summary: "Delete activity log day-directories older than a cutoff", Stability: "experimental", Mutates: true, SideEffects: []string{"deletes_activity_log_files"}, Examples: []string{"miudb activity prune --older-than 30d --dry-run --output json"}},
 		{Name: "mcp serve", Summary: "Serve standard MCP over stdio", Stability: "experimental", Mutates: false, SideEffects: []string{"opens_connections", "may_create_tunnels"}},
 		{Name: "serve", Summary: "Serve JSON-RPC or NDJSON over stdio", Stability: "experimental", Mutates: false},
 		{Name: "auth login", Summary: "Acquire and store an OAuth token for a connection", Stability: "experimental", Mutates: true, SideEffects: []string{"opens_browser", "may_write_keyring"}, Examples: []string{"miudb auth login myconn --output json"}},
