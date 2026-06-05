@@ -73,7 +73,7 @@ func registerTools(server *mcp.Server, services *core.Services, opts Options, po
 		if err := policy.requireConnection(in.Connection); err != nil {
 			return nil, schemaTreeOutput{}, err
 		}
-		conn, data, err := services.SchemaTree(ctx, in.Connection)
+		conn, data, err := services.SchemaTreeWithMeta(ctx, in.Connection, opts.activityMeta())
 		if err != nil {
 			return nil, schemaTreeOutput{}, policy.toolErr("schema.failed", err)
 		}
@@ -92,7 +92,7 @@ func registerTools(server *mcp.Server, services *core.Services, opts Options, po
 			return nil, queryRunOutput{}, err
 		}
 		limit := normalizeLimit(opts, in.Limit)
-		conn, outcome, err := services.RunQuery(ctx, in.Connection, in.SQL, limit)
+		conn, outcome, err := services.RunQueryWithMeta(ctx, in.Connection, in.SQL, limit, nil, opts.activityMeta())
 		if err != nil {
 			return nil, queryRunOutput{}, policy.toolErr("query.failed", err)
 		}
@@ -169,7 +169,7 @@ func smokeConnections(ctx context.Context, services *core.Services, opts Options
 			results = append(results, smokeFailure(policy, raw, err))
 			continue
 		}
-		outcome, err := services.RunQueryConnection(ctx, conn, sqlText, limit)
+		outcome, err := services.RunQueryConnectionMeta(ctx, conn, sqlText, limit, opts.activityMeta())
 		if err != nil {
 			results = append(results, smokeFailure(policy, conn, err))
 			continue
