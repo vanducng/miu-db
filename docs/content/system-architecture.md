@@ -51,10 +51,14 @@ Keychain/keyring service.
 - `internal/config/secrets.go` resolves keyring, file, gopass, command, and env
   secret providers.
 - `internal/tunnel/tunnel.go` establishes SSH tunnel-backed TCP connections.
-- `internal/cli/commands.go` exposes connection, query, schema, and protocol
-  commands.
+- `internal/cli/commands.go` exposes connection, query, schema, activity, and
+  protocol commands.
 - `internal/core/services.go` provides the shared service boundary used by CLI,
   native protocol, and MCP.
 - `internal/mcpserver` exposes local stdio MCP tools and resources with
   allowlists, read-only defaults, output limits, and redacted errors.
+- `internal/activity` captures per-operation JSONL events under
+  `~/.config/miu/db/activity/{date}/{session_id}.jsonl` (SQL + metadata only,
+  never result rows). Browseable via `miudb activity`; purgeable via
+  `miudb activity prune`.
 - `ui/miu-db.nvim` provides the current Neovim client.

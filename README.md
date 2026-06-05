@@ -169,6 +169,83 @@ If the host can't find `miudb`, use the full path from `which miudb`. See
 [the MCP docs](https://miudb.vanducng.dev/mcp/) for VS Code, per-connection
 scoping, and tool reference.
 
+## Activity Log
+
+Every query, exec, and schema operation is recorded as a JSONL event under:
+
+```text
+~/.config/miu/db/activity/{date}/{session_id}.jsonl
+```
+
+Each line captures SQL text, `sql_shape` (literals replaced with `?`),
+connection name, group, db\_type, latency, rows\_returned count, and error
+info. **Result rows are never stored** — only counts and metadata.
+
+### Browse logs
+
+```bash
+# all events from the last day
+miudb activity --since 1d --output json
+
+# all events for a specific connection
+miudb activity --connection local-app --since 7d --output json
+
+# only failures
+miudb activity --failed --since 24h --output json
+
+# reconstruct a full session trace (spans multiple date dirs if needed)
+miudb activity --session <session_id> --output json
+```
+
+### Prune old logs
+
+```bash
+miudb activity prune --older-than 30d          # delete dirs older than 30 days
+miudb activity prune --older-than 30d --dry-run # preview without deleting
+```
+
+### Opt out
+
+Disable for a single invocation:
+
+```bash
+miudb query run --connection local-app --sql 'select 1' --no-activity-log
+```
+
+Disable globally via environment variable:
+
+```bash
+MIUDB_ACTIVITY_LOG=off miudb query run --connection local-app --sql 'select 1'
+```
+
+Disable per-connection by setting `"log_sql": false` in `connections.json`:
+
+```json
+{ "name": "local-app", "db_type": "sqlite", "log_sql": false, ... }
+```
+
+With `log_sql: false`, `sql_shape` (normalized, no literals) is still
+recorded; only the raw SQL text is omitted.
+
+### `--session` flag distinction
+
+`query run --session key=value` sets a temporary, per-call connection context
+(e.g. Snowflake role). This is unrelated to the activity log session\_id, which
+is a machine-generated identifier minted once per CLI invocation or MCP server
+start. The flags share a name for historical reasons; a rename is a separate
+decision tracked in `plans/260605-1736-session-activity-store/decisions.md`.
+
+### Power-user SQL path (DuckDB)
+
+For ad-hoc analytics across all sessions, load the raw JSONL directly in DuckDB:
+
+```sql
+select session_id, connection, op, sql_shape, latency_ms, rows_returned, ts
+from read_json_auto('~/.config/miu/db/activity/**/*.jsonl')
+order by ts desc
+limit 100;
+```
+
 ## Development
 
 ```bash
