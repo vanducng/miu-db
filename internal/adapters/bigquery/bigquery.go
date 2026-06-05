@@ -24,10 +24,55 @@ func New() Provider { return Provider{} }
 
 func (Provider) Type() string { return "bigquery" }
 
-// SessionKeys are the per-call --session keys BigQuery accepts. They reuse the
-// existing bigquery_ option convention and map to job/client config, not SQL.
+// SessionKeys are the per-call --session keys BigQuery accepts.
 func (Provider) SessionKeys() []string {
 	return []string{"bigquery_location", "bigquery_maximum_bytes_billed"}
+}
+
+// clientOptions builds the google API client options from conn.
+// Honors auth_method (adc|service_account) and bigquery_quota_project.
+// Used by Open and openClient only; Query operates on an existing session.
+func clientOptions(conn config.Connection) ([]option.ClientOption, error) {
+	authMethod, _ := conn.Options["auth_method"].(string)
+	credPath, _ := conn.Options["bigquery_credentials_path"].(string)
+
+	var opts []option.ClientOption
+
+	switch authMethod {
+	case "", "adc":
+		if credPath != "" {
+			opts = append(opts, option.WithAuthCredentialsFile(option.ServiceAccount, expandPath(credPath)))
+		}
+		// else: rely on ADC (GOOGLE_APPLICATION_CREDENTIALS or gcloud default)
+	case "service_account":
+		if credPath == "" {
+			return nil, fmt.Errorf("bigquery auth_method=service_account requires bigquery_credentials_path")
+		}
+		opts = append(opts, option.WithAuthCredentialsFile(option.ServiceAccount, expandPath(credPath)))
+	default:
+		return nil, fmt.Errorf("bigquery auth_method %q unknown; use \"adc\" or \"service_account\"", authMethod)
+	}
+
+	if qp, _ := conn.Options["bigquery_quota_project"].(string); qp != "" {
+		opts = append(opts, option.WithQuotaProject(qp))
+	}
+
+	return opts, nil
+}
+
+// wrapCredentialError attaches an actionable hint when BigQuery returns a
+// missing-ADC error so the user knows exactly how to fix it.
+func wrapCredentialError(err error) error {
+	if err == nil {
+		return nil
+	}
+	msg := err.Error()
+	if strings.Contains(msg, "could not find default credentials") ||
+		strings.Contains(msg, "application default credentials") ||
+		strings.Contains(msg, "Application Default Credentials") {
+		return fmt.Errorf("BigQuery: no credentials found. run `gcloud auth application-default login`, or set bigquery_credentials_path / GOOGLE_APPLICATION_CREDENTIALS: %w", err)
+	}
+	return err
 }
 
 func applySession(q *gcbq.Query, opts map[string]any) error {
@@ -64,13 +109,13 @@ func (p Provider) Open(ctx context.Context, conn config.Connection) (*adapter.Se
 	if project == "" {
 		return nil, fmt.Errorf("bigquery project is required")
 	}
-	opts := []option.ClientOption{}
-	if path, ok := conn.Options["bigquery_credentials_path"].(string); ok && path != "" {
-		opts = append(opts, option.WithCredentialsFile(expandPath(path)))
+	opts, err := clientOptions(conn)
+	if err != nil {
+		return nil, err
 	}
 	client, err := gcbq.NewClient(ctx, project, opts...)
 	if err != nil {
-		return nil, err
+		return nil, wrapCredentialError(err)
 	}
 	q := client.Query("SELECT 1")
 	if err := applySession(q, conn.Options); err != nil {
@@ -185,11 +230,15 @@ func (Provider) Schema(ctx context.Context, session *adapter.Session) (any, erro
 
 func openClient(ctx context.Context, conn config.Connection) (*gcbq.Client, error) {
 	project := conn.Endpoint.Host
-	opts := []option.ClientOption{}
-	if path, ok := conn.Options["bigquery_credentials_path"].(string); ok && path != "" {
-		opts = append(opts, option.WithCredentialsFile(expandPath(path)))
+	opts, err := clientOptions(conn)
+	if err != nil {
+		return nil, err
 	}
-	return gcbq.NewClient(ctx, project, opts...)
+	client, err := gcbq.NewClient(ctx, project, opts...)
+	if err != nil {
+		return nil, wrapCredentialError(err)
+	}
+	return client, nil
 }
 
 func expandPath(path string) string {

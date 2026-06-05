@@ -164,7 +164,7 @@ func smokeConnections(ctx context.Context, services *core.Services, opts Options
 			results = append(results, smokeFailure(policy, raw, err))
 			continue
 		}
-		conn, err := services.Store.Resolve(raw)
+		conn, _, err := services.Store.FindResolved(raw.Name)
 		if err != nil {
 			results = append(results, smokeFailure(policy, raw, err))
 			continue

@@ -4,6 +4,9 @@ site/
 *.db
 coverage.out
 
+# Local agent tooling state
+.claude/
+
 # Astro / Starlight docs site
 node_modules/
 docs/dist/
