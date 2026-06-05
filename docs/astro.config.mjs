@@ -37,7 +37,7 @@ export default defineConfig({
       sidebar: [
         { label: 'Overview', link: '/' },
         { label: 'Getting Started', items: ['go-install', 'go-daily-driver'] },
-        { label: 'Agent CLI', items: ['agent-cli', 'cli-contract', 'mcp'] },
+        { label: 'Agent CLI', items: ['agent-cli', 'cli-contract', 'mcp', 'authentication'] },
         {
           label: 'Architecture',
           items: ['system-architecture', 'golang-architecture', 'tech-stack', 'cloud-adapters'],

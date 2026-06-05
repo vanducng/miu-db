@@ -116,6 +116,51 @@ inline passwords needs no extra setup on the target machine; treat it as a
 secret (mode `0600`, secure channel only). Use `--dry-run` to preview the
 added/overwritten connections before writing.
 
+## OAuth Authentication
+
+Snowflake and BigQuery support token-based authentication with a one-time
+interactive login. All subsequent queries refresh and use the stored token
+silently.
+
+**Snowflake** — add the connection once, then log in:
+
+```bash
+miudb connections add \
+  --name sf-prod \
+  --db-type snowflake \
+  --host <account>.snowflakecomputing.com \
+  --username <user> \
+  --option authenticator=oauth \
+  --option oauth_client_id=<client-id> \
+  --option oauth_authorization_url=https://<account>.snowflakecomputing.com/oauth/authorize \
+  --option oauth_token_request_url=https://<account>.snowflakecomputing.com/oauth/token-request \
+  --option oauth_scope=session:role:ANALYST \
+  --output json
+
+miudb auth login sf-prod --output json
+miudb auth status sf-prod --output json
+miudb query run --connection sf-prod --sql 'SELECT CURRENT_ROLE()' --output json
+```
+
+No `--password` is required for OAuth connections.
+
+**BigQuery** — authenticate once with gcloud, then add the connection:
+
+```bash
+gcloud auth application-default login
+
+miudb connections add \
+  --name bq-analytics \
+  --db-type bigquery \
+  --option project=my-gcp-project \
+  --option dataset=analytics \
+  --output json
+```
+
+See [the authentication docs](https://miudb.vanducng.dev/authentication/) for
+the Snowflake `CREATE SECURITY INTEGRATION` snippet, all option keys, and
+secret-handling guarantees.
+
 ## Adapters
 
 Daily-driver adapters:
@@ -123,8 +168,8 @@ Daily-driver adapters:
 - SQLite
 - PostgreSQL
 - MySQL
-- Snowflake
-- BigQuery
+- Snowflake (password, JWT, OAuth)
+- BigQuery (ADC, service account)
 
 SSH tunnel-backed connections are supported for TCP adapters.
 

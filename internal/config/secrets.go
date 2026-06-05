@@ -49,6 +49,9 @@ func SensitiveTargets(conn Connection) []string {
 		targets = append(targets, "tunnel.password")
 	}
 	for key, value := range conn.Options {
+		if strings.HasPrefix(key, "__") {
+			continue
+		}
 		if isSecretKey(key) && fmt.Sprint(value) != "" {
 			targets = append(targets, "options."+key)
 		}

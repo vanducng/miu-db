@@ -11,6 +11,106 @@ import (
 	"github.com/vanducng/miu-db/internal/config"
 )
 
+func TestBuildConfigOAuth(t *testing.T) {
+	tests := []struct {
+		name    string
+		opts    map[string]any
+		wantErr string
+		check   func(t *testing.T, cfg *gosnowflake.Config)
+	}{
+		{
+			name: "oauth with token",
+			opts: map[string]any{
+				"authenticator":        "oauth",
+				"__oauth_access_token": "tok123",
+			},
+			check: func(t *testing.T, cfg *gosnowflake.Config) {
+				if cfg.Authenticator != gosnowflake.AuthTypeOAuth {
+					t.Fatalf("expected AuthTypeOAuth, got %v", cfg.Authenticator)
+				}
+				if cfg.Token != "tok123" {
+					t.Fatalf("expected token tok123, got %q", cfg.Token)
+				}
+				// DSN must succeed for the oauth config.
+				if _, err := gosnowflake.DSN(cfg); err != nil {
+					t.Fatalf("DSN: %v", err)
+				}
+			},
+		},
+		{
+			name:    "oauth without token",
+			opts:    map[string]any{"authenticator": "oauth"},
+			wantErr: "snowflake oauth: no access token (run miudb auth login)",
+		},
+		{
+			name:    "oauth with empty token",
+			opts:    map[string]any{"authenticator": "oauth", "__oauth_access_token": ""},
+			wantErr: "snowflake oauth: no access token (run miudb auth login)",
+		},
+		{
+			name: "oauth authenticator is case-insensitive",
+			opts: map[string]any{
+				"authenticator":        "OAuth",
+				"__oauth_access_token": "tok_upper",
+			},
+			check: func(t *testing.T, cfg *gosnowflake.Config) {
+				if cfg.Authenticator != gosnowflake.AuthTypeOAuth {
+					t.Fatalf("expected AuthTypeOAuth, got %v", cfg.Authenticator)
+				}
+			},
+		},
+		{
+			name: "jwt branch unaffected by oauth addition",
+			opts: map[string]any{
+				"authenticator":    "snowflake_jwt",
+				"private_key_file": "/nonexistent/key.pem",
+			},
+			wantErr: "no such file",
+		},
+		{
+			name: "password branch uses default authenticator",
+			opts: map[string]any{},
+			check: func(t *testing.T, cfg *gosnowflake.Config) {
+				if cfg.Authenticator != gosnowflake.AuthTypeSnowflake {
+					t.Fatalf("expected AuthTypeSnowflake, got %v", cfg.Authenticator)
+				}
+				if cfg.PrivateKey != nil {
+					t.Fatal("expected no private key for password auth")
+				}
+				if cfg.Token != "" {
+					t.Fatalf("expected no token for password auth, got %q", cfg.Token)
+				}
+			},
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			conn := config.Connection{
+				DBType:   "snowflake",
+				Endpoint: config.Endpoint{Host: "acct", Username: "user", Password: "pass"},
+				Options:  tc.opts,
+			}
+			cfg, err := buildConfig(conn)
+			if tc.wantErr != "" {
+				if err == nil {
+					t.Fatalf("expected error containing %q, got nil", tc.wantErr)
+				}
+				if !strings.Contains(err.Error(), tc.wantErr) {
+					t.Fatalf("expected error %q, got %q", tc.wantErr, err.Error())
+				}
+				return
+			}
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+			if tc.check != nil {
+				tc.check(t, cfg)
+			}
+		})
+	}
+}
+
 func TestBuildConfigSetsRoleFromOptions(t *testing.T) {
 	conn := config.Connection{
 		DBType:   "snowflake",
