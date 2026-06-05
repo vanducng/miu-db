@@ -47,7 +47,7 @@ func LoadOAuthToken(service, conn string) (*oauth2.Token, bool, error) {
 	}
 	item, err := ring.Get(credentialKey(conn, "oauth"))
 	if err != nil {
-		if errors.Is(err, keyring.ErrKeyNotFound) {
+		if errors.Is(err, keyring.ErrKeyNotFound) || errors.Is(err, os.ErrNotExist) {
 			return nil, false, nil
 		}
 		return nil, false, err
