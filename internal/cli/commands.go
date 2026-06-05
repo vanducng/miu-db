@@ -101,6 +101,7 @@ func rootCommand(opts *options) *cobra.Command {
 	root.AddCommand(connectionsCommand(opts))
 	root.AddCommand(queryCommand(opts))
 	root.AddCommand(schemaCommand(opts))
+	root.AddCommand(activityCommand(opts))
 	root.AddCommand(mcpCommand(opts))
 	root.AddCommand(serveCommand(opts))
 	return root
