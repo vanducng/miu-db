@@ -77,6 +77,16 @@ miudb connections test local-app --output json
 miudb query run --connection local-app --sql 'select 1 as one' --output json
 ```
 
+Use `--session key=value` (repeatable) to set temporary, per-call session context.
+Keys are provider-specific and rejected when unsupported; they do not persist
+across calls. For example, switch the Snowflake role for one query:
+
+```bash
+miudb query run --connection cnb-snowflake \
+  --session role=DBT_ANALYTICS_ROLE \
+  --sql 'select current_role()' --output json
+```
+
 Supported secret stores for new connections:
 
 - `keyring`: OS Keychain/keyring service named `miudb` by default.

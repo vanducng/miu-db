@@ -41,11 +41,33 @@ func (p Provider) Open(ctx context.Context, conn config.Connection) (*adapter.Se
 		targetHost, targetPort = forward.Host, forward.Port
 		closer = forward.Close
 	}
+	cfg := buildConfig(conn, targetHost, targetPort)
+	db, err := sql.Open("mysql", cfg.FormatDSN())
+	if err != nil {
+		_ = closer()
+		return nil, err
+	}
+	if err := db.PingContext(ctx); err != nil {
+		_ = db.Close()
+		_ = closer()
+		return nil, err
+	}
+	return &adapter.Session{DB: db, Closer: closer, Provider: p, Config: conn}, nil
+}
+
+// SessionKeys are the per-call --session keys MySQL accepts. They map to
+// connection-time system variables via the driver's DSN params. Values are
+// passed verbatim — quote them if MySQL requires it (e.g. time_zone='+00:00').
+func (Provider) SessionKeys() []string {
+	return []string{"sql_mode", "time_zone", "max_execution_time"}
+}
+
+func buildConfig(conn config.Connection, host, port string) *driver.Config {
 	cfg := driver.NewConfig()
 	cfg.User = conn.Endpoint.Username
 	cfg.Passwd = conn.Endpoint.Password
 	cfg.Net = "tcp"
-	cfg.Addr = net.JoinHostPort(targetHost, targetPort)
+	cfg.Addr = net.JoinHostPort(host, port)
 	cfg.DBName = conn.Endpoint.Database
 	cfg.ParseTime = true
 	tlsMode := ""
@@ -68,17 +90,21 @@ func (p Provider) Open(ctx context.Context, conn config.Connection) (*adapter.Se
 	} else if strings.EqualFold(tlsMode, "require") || strings.EqualFold(tlsMode, "required") {
 		cfg.TLSConfig = "preferred"
 	}
-	db, err := sql.Open("mysql", cfg.FormatDSN())
-	if err != nil {
-		_ = closer()
-		return nil, err
+	applyMySQLSessionOptions(cfg, conn.Options)
+	return cfg
+}
+
+func applyMySQLSessionOptions(cfg *driver.Config, opts map[string]any) {
+	for _, key := range []string{"sql_mode", "time_zone", "max_execution_time"} {
+		v, ok := opts[key].(string)
+		if !ok || v == "" {
+			continue
+		}
+		if cfg.Params == nil {
+			cfg.Params = map[string]string{}
+		}
+		cfg.Params[key] = v
 	}
-	if err := db.PingContext(ctx); err != nil {
-		_ = db.Close()
-		_ = closer()
-		return nil, err
-	}
-	return &adapter.Session{DB: db, Closer: closer, Provider: p, Config: conn}, nil
 }
 
 func (Provider) BuildSelect(table string, limit int) string {

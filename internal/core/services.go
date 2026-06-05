@@ -57,12 +57,29 @@ func (s *Services) FindConnection(name string) (config.Connection, bool, error) 
 }
 
 func (s *Services) RunQuery(ctx context.Context, name string, sqlText string, limit int) (config.Connection, query.Outcome, error) {
+	return s.RunQueryWithSession(ctx, name, sqlText, limit, nil)
+}
+
+// RunQueryWithSession resolves the connection, overlays validated per-call
+// session context onto a clone of its Options (saved config untouched), then
+// runs the query. A nil/empty session is identical to RunQuery.
+func (s *Services) RunQueryWithSession(ctx context.Context, name string, sqlText string, limit int, session map[string]any) (config.Connection, query.Outcome, error) {
 	conn, ok, err := s.FindConnection(name)
 	if err != nil {
 		return config.Connection{}, query.Outcome{}, err
 	}
 	if !ok {
 		return config.Connection{}, query.Outcome{}, fmt.Errorf("connection %q not found", name)
+	}
+	if len(session) > 0 {
+		provider, pok := s.registry().Get(conn.DBType)
+		if !pok {
+			return conn, query.Outcome{}, adapter.MissingProvider(conn.DBType)
+		}
+		conn, err = adapter.ApplySession(provider, conn, session)
+		if err != nil {
+			return conn, query.Outcome{}, err
+		}
 	}
 	outcome, err := s.RunQueryConnection(ctx, conn, sqlText, limit)
 	return conn, outcome, err
