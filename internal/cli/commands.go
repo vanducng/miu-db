@@ -12,6 +12,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/vanducng/miu-db/internal/activity"
 	"github.com/vanducng/miu-db/internal/adapter"
 	"github.com/vanducng/miu-db/internal/config"
 	"github.com/vanducng/miu-db/internal/core"
@@ -31,6 +32,8 @@ type options struct {
 	gopassPrefix     string
 	limit            int
 	timeout          time.Duration
+	noActivityLog    bool
+	sessionID        string // minted once per invocation in PersistentPreRunE
 }
 
 type commandInfo struct {
@@ -78,6 +81,7 @@ func rootCommand(opts *options) *cobra.Command {
 	root.PersistentFlags().StringVar(&opts.gopassPrefix, "gopass-prefix", "miudb", "gopass path prefix")
 	root.PersistentFlags().IntVar(&opts.limit, "limit", 100, "Maximum rows returned inline")
 	root.PersistentFlags().DurationVar(&opts.timeout, "timeout", 30*time.Second, "Connection/query timeout")
+	root.PersistentFlags().BoolVar(&opts.noActivityLog, "no-activity-log", false, "Disable activity logging for this invocation")
 	root.PersistentPreRunE = func(cmd *cobra.Command, args []string) error {
 		switch opts.output {
 		case "", "json":
@@ -87,6 +91,7 @@ func rootCommand(opts *options) *cobra.Command {
 		default:
 			return &CLIError{Code: "output.invalid_format", Message: fmt.Sprintf("unknown output format %q", opts.output), Hint: "use json or pretty", Exit: 2}
 		}
+		opts.sessionID = activity.NewSessionID("req")
 		return nil
 	}
 	root.AddCommand(versionCommand())
@@ -96,6 +101,7 @@ func rootCommand(opts *options) *cobra.Command {
 	root.AddCommand(connectionsCommand(opts))
 	root.AddCommand(queryCommand(opts))
 	root.AddCommand(schemaCommand(opts))
+	root.AddCommand(activityCommand(opts))
 	root.AddCommand(mcpCommand(opts))
 	root.AddCommand(serveCommand(opts))
 	return root
@@ -420,7 +426,7 @@ func connectionsSmokeCommand(opts *options) *cobra.Command {
 							results[idx] = smokeResolveError(conns[idx], err)
 							continue
 						}
-						results[idx] = runSmoke(cmd.Context(), services, conn, sqlText, opts.limit)
+						results[idx] = runSmoke(cmd.Context(), services, conn, sqlText, opts.limit, opts.captureMeta())
 					}
 				}()
 			}
@@ -494,7 +500,7 @@ func selectConnections(conns []config.Connection, names []string) []config.Conne
 	return out
 }
 
-func runSmoke(parent context.Context, services *core.Services, conn config.Connection, sqlText string, limit int) smokeResult {
+func runSmoke(parent context.Context, services *core.Services, conn config.Connection, sqlText string, limit int, meta activity.CaptureMeta) smokeResult {
 	start := time.Now()
 	ctx := parent
 	cancel := func() {}
@@ -502,7 +508,7 @@ func runSmoke(parent context.Context, services *core.Services, conn config.Conne
 		ctx, cancel = context.WithTimeout(parent, services.Timeout)
 	}
 	defer cancel()
-	outcome, err := services.RunQueryConnection(ctx, conn, sqlText, limit)
+	outcome, err := services.RunQueryConnectionMeta(ctx, conn, sqlText, limit, meta)
 	res := smokeResult{Name: conn.Name, DBType: conn.DBType, DurationMS: time.Since(start).Milliseconds()}
 	if err != nil {
 		info := errorInfo(err)
@@ -629,7 +635,7 @@ func queryCommand(opts *options) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			conn, outcome, err := services.RunQueryWithSession(cmd.Context(), connectionName, sqlText, opts.limit, session)
+			conn, outcome, err := services.RunQueryWithMeta(cmd.Context(), connectionName, sqlText, opts.limit, session, opts.captureMeta())
 			if err != nil {
 				var uskErr *adapter.UnsupportedSessionKeyError
 				if errors.As(err, &uskErr) {
@@ -691,7 +697,7 @@ func schemaCommand(opts *options) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			conn, data, err := services.SchemaTree(cmd.Context(), connectionName)
+			conn, data, err := services.SchemaTreeWithMeta(cmd.Context(), connectionName, opts.captureMeta())
 			if err != nil {
 				if strings.Contains(err.Error(), "not found") {
 					return &CLIError{Code: "connection.not_found", Message: "connection not found", Exit: 2}
@@ -822,7 +828,14 @@ func loadServices(opts *options) (*core.Services, error) {
 	if err != nil {
 		return nil, err
 	}
-	return core.NewServices(store, opts.timeout), nil
+	svc := core.NewServices(store, opts.timeout)
+	enabled := !opts.noActivityLog && os.Getenv("MIUDB_ACTIVITY_LOG") != "off"
+	svc.Logger = activity.New(activity.Options{Enabled: enabled})
+	return svc, nil
+}
+
+func (opts *options) captureMeta() activity.CaptureMeta {
+	return activity.CaptureMeta{SessionID: opts.sessionID, Source: "cli"}
 }
 
 func catalog() []commandInfo {

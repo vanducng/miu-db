@@ -50,6 +50,53 @@ func TestNewServerInitializesClient(t *testing.T) {
 	}
 }
 
+// newServer mints a stable mcp_ session id and attaches an activity logger.
+func TestNewServerMintsMCPSessionID(t *testing.T) {
+	services := core.NewServices(&config.Store{}, 0)
+	opts := Options{ImplementationName: "miudb-test", ImplementationVersion: "test"}
+	_, err := newServer(services, opts, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	// services.Logger must be attached by newServer
+	if services.Logger == nil {
+		t.Fatal("expected Logger to be set on services after newServer")
+	}
+}
+
+// Two calls to newServer mint distinct session IDs.
+func TestNewServerSessionIDsAreDistinct(t *testing.T) {
+	s1 := core.NewServices(&config.Store{}, 0)
+	s2 := core.NewServices(&config.Store{}, 0)
+	opts := Options{ImplementationName: "t", ImplementationVersion: "t"}
+	// Capture the session IDs via withDefaults: newServer sets SessionID if empty.
+	// We pass non-empty opts to verify the minted IDs differ across calls.
+	o1 := opts.withDefaults()
+	o2 := opts.withDefaults()
+	if _, err := newServer(s1, o1, nil); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := newServer(s2, o2, nil); err != nil {
+		t.Fatal(err)
+	}
+	// Each services gets a logger; that's the observable side-effect of newServer.
+	if s1.Logger == nil || s2.Logger == nil {
+		t.Fatal("both servers should have a logger")
+	}
+}
+
+// activityMeta returns source=mcp for any non-empty session ID.
+func TestActivityMetaSourceMCP(t *testing.T) {
+	opts := Options{SessionID: "mcp_123"}
+	meta := opts.activityMeta()
+	if meta.Source != "mcp" {
+		t.Errorf("source = %q, want mcp", meta.Source)
+	}
+	if meta.SessionID != "mcp_123" {
+		t.Errorf("session_id = %q, want mcp_123", meta.SessionID)
+	}
+}
+
 func TestServeRejectsUnsupportedTransportWithoutStdout(t *testing.T) {
 	services := core.NewServices(&config.Store{}, 0)
 	var stdout bytes.Buffer

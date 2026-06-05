@@ -8,6 +8,7 @@ import (
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 
+	"github.com/vanducng/miu-db/internal/activity"
 	"github.com/vanducng/miu-db/internal/core"
 )
 
@@ -50,6 +51,10 @@ func newServer(services *core.Services, opts Options, logger *slog.Logger) (*mcp
 		return nil, fmt.Errorf("core services are required")
 	}
 	opts = opts.withDefaults()
+	if opts.SessionID == "" {
+		opts.SessionID = activity.NewSessionID("mcp")
+	}
+	services.Logger = activity.New(activity.Options{Enabled: activityEnabled()})
 	server := mcp.NewServer(&mcp.Implementation{
 		Name:    opts.ImplementationName,
 		Version: opts.ImplementationVersion,
