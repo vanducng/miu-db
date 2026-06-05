@@ -860,7 +860,7 @@ func loadServices(opts *options) (*core.Services, error) {
 	}
 	svc := core.NewServices(store, opts.timeout)
 	enabled := !opts.noActivityLog && os.Getenv("MIUDB_ACTIVITY_LOG") != "off"
-	svc.Logger = activity.New(activity.Options{Enabled: enabled})
+	svc.Logger = activity.New(activity.Options{Root: activityRoot(opts), Enabled: enabled})
 	return svc, nil
 }
 
