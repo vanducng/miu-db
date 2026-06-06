@@ -7,6 +7,7 @@ import (
 	"database/sql"
 	"encoding/pem"
 	"fmt"
+	"io"
 	"os"
 	"strings"
 
@@ -17,6 +18,11 @@ import (
 	"github.com/vanducng/miu-db/internal/config"
 	"github.com/vanducng/miu-db/internal/schema"
 )
+
+func init() {
+	// Silence gosnowflake's stderr logger; benign chunk-cancel noise on early-stop, real errors surface via return values.
+	gosnowflake.GetLogger().SetOutput(io.Discard)
+}
 
 type Provider struct{}
 
