@@ -8,6 +8,7 @@ import (
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 
+	"github.com/vanducng/miu-db/internal/adapter"
 	"github.com/vanducng/miu-db/internal/config"
 	"github.com/vanducng/miu-db/internal/core"
 	"github.com/vanducng/miu-db/internal/result"
@@ -101,6 +102,35 @@ func registerTools(server *mcp.Server, services *core.Services, opts Options, po
 			DBType:     conn.DBType,
 			Result:     outcome.Result,
 			NextCursor: policy.encodeToolCursor(conn.Name, outcome.NextCursor),
+			Limit:      limit,
+		}
+		return nil, out, policy.enforceBytes(out)
+	})
+
+	mcp.AddTool(server, &mcp.Tool{
+		Name:        "query_script",
+		Description: "Run a multi-statement SQL script against one saved connection (Snowflake or MySQL only). Returns 'results' as an array with one entry per statement. Read-only scripts run by default; set allow_mutate=true for scripts that modify data. Set atomic=true to wrap in a transaction.",
+	}, func(ctx context.Context, req *mcp.CallToolRequest, in queryScriptInput) (*mcp.CallToolResult, queryScriptOutput, error) {
+		if err := policy.requireConnection(in.Connection); err != nil {
+			return nil, queryScriptOutput{}, err
+		}
+		if err := policy.requireScriptMutation(in.SQL, in.AllowMutate); err != nil {
+			return nil, queryScriptOutput{}, err
+		}
+		limit := normalizeLimit(opts, in.Limit)
+		conn, sr, err := services.RunScript(ctx, in.Connection, in.SQL, limit, adapter.ScriptOptions{Atomic: in.Atomic})
+		if err != nil {
+			var uns *adapter.UnsupportedScriptError
+			if errors.As(err, &uns) {
+				return nil, queryScriptOutput{}, policy.toolErr("query.script_unsupported", err)
+			}
+			return nil, queryScriptOutput{}, policy.toolErr("query.script_failed", err)
+		}
+		out := queryScriptOutput{
+			Connection: conn.Name,
+			DBType:     conn.DBType,
+			Results:    sr.Statements,
+			Errors:     sr.Errors,
 			Limit:      limit,
 		}
 		return nil, out, policy.enforceBytes(out)

@@ -1,0 +1,62 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "miudb.script-result-v1",
+  "type": "object",
+  "required": ["results"],
+  "properties": {
+    "results": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["index", "kind", "row_count", "truncated"],
+        "properties": {
+          "index": {"type": "integer"},
+          "kind": {"type": "string", "enum": ["rows", "exec"]},
+          "result": {
+            "type": "object",
+            "required": ["columns", "rows", "truncated"],
+            "properties": {
+              "columns": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "required": ["name"],
+                  "properties": {
+                    "name": {"type": "string"},
+                    "type": {"type": "string"},
+                    "nullable": {"type": "boolean"}
+                  },
+                  "additionalProperties": true
+                }
+              },
+              "rows": {"type": "array", "items": {"type": "array"}},
+              "truncated": {"type": "boolean"}
+            },
+            "additionalProperties": true
+          },
+          "row_count": {"type": "integer"},
+          "truncated": {"type": "boolean"},
+          "error": {"$ref": "#/$defs/statementError"}
+        },
+        "additionalProperties": true
+      }
+    },
+    "errors": {
+      "type": "array",
+      "items": {"$ref": "#/$defs/statementError"}
+    }
+  },
+  "additionalProperties": true,
+  "$defs": {
+    "statementError": {
+      "type": "object",
+      "required": ["index", "code", "message"],
+      "properties": {
+        "index": {"type": "integer"},
+        "code": {"type": "string"},
+        "message": {"type": "string"}
+      },
+      "additionalProperties": true
+    }
+  }
+}

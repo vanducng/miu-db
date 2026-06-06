@@ -95,6 +95,31 @@ func (p safetyPolicy) requireReadOnly(sqlText string) error {
 	return &SafetyError{Code: "query.read_only_violation", Message: "MCP query_run is read-only by default; restart with --allow-mutate to permit mutations"}
 }
 
+// requireScriptMutation gates query_script. A read-only script always runs.
+// A mutating script needs the server started with --allow-mutate AND an explicit
+// per-call allow_mutate=true. It does NOT use isReadOnlySQL, which rejects any
+// interior ';' (every multi-statement script has one).
+func (p safetyPolicy) requireScriptMutation(sqlText string, allowMutate bool) error {
+	if !scriptHasMutation(sqlText) {
+		return nil
+	}
+	if !p.allowMutations {
+		return &SafetyError{Code: "query.read_only_violation", Message: "MCP server is read-only; restart with --allow-mutate to permit mutating scripts"}
+	}
+	if !allowMutate {
+		return &SafetyError{Code: "query.mutation_not_acknowledged", Message: "this script modifies data; set allow_mutate=true to run it"}
+	}
+	return nil
+}
+
+// scriptHasMutation conservatively flags a script as mutating if any mutation
+// keyword appears as a token anywhere in it. Tokenizing the whole script (';'
+// becomes whitespace) sidesteps the isReadOnlySQL ';' short-circuit; over-
+// detection is safe-fail for a gate.
+func scriptHasMutation(sqlText string) bool {
+	return hasMutation(sqlTokens(sqlText))
+}
+
 func (p safetyPolicy) enforceBytes(value any) error {
 	if p.maxBytes <= 0 {
 		return nil

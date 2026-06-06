@@ -18,6 +18,12 @@ func New() Provider { return Provider{} }
 
 func (Provider) Type() string { return "sqlite" }
 
+// ScriptUnsupportedReason rejects multi-statement scripts: the modernc driver's
+// Query keeps only the LAST result set (silently dropping earlier ones).
+func (Provider) ScriptUnsupportedReason() string {
+	return "sqlite scripts are not supported (only the final result set would be returned); run statements individually with 'query run'"
+}
+
 func (p Provider) Open(ctx context.Context, conn config.Connection) (*adapter.Session, error) {
 	path := conn.Endpoint.Path
 	if path == "" {

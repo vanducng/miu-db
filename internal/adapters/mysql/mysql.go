@@ -14,6 +14,7 @@ import (
 
 	"github.com/vanducng/miu-db/internal/adapter"
 	"github.com/vanducng/miu-db/internal/config"
+	"github.com/vanducng/miu-db/internal/result"
 	"github.com/vanducng/miu-db/internal/schema"
 	"github.com/vanducng/miu-db/internal/tunnel"
 )
@@ -105,6 +106,34 @@ func applyMySQLSessionOptions(cfg *driver.Config, opts map[string]any) {
 		}
 		cfg.Params[key] = v
 	}
+}
+
+// RunScript runs a multi-statement script over a DEDICATED multiStatements pool.
+// The default query run pool keeps multiStatements OFF (so stacked statements
+// can't slip into ordinary queries); this path opens its own pool AND its own
+// tunnel and closes both. go-sql-driver streams result sets, so a mid-batch
+// failure keeps the collected prefix (real failing index).
+func (p Provider) RunScript(ctx context.Context, conn config.Connection, script string, limit int, opts adapter.ScriptOptions) (result.ScriptResult, error) {
+	targetHost, targetPort := conn.Endpoint.Host, defaultString(conn.Endpoint.Port, "3306")
+	closeTunnel := func() error { return nil }
+	if conn.Tunnel != nil && conn.Tunnel.Enabled {
+		forward, err := tunnel.Open(ctx, *conn.Tunnel, targetHost, targetPort)
+		if err != nil {
+			return result.ScriptResult{}, err
+		}
+		targetHost, targetPort = forward.Host, forward.Port
+		closeTunnel = forward.Close
+	}
+	defer func() { _ = closeTunnel() }()
+
+	cfg := buildConfig(conn, targetHost, targetPort)
+	cfg.MultiStatements = true // scoped to the script path only
+	db, err := sql.Open("mysql", cfg.FormatDSN())
+	if err != nil {
+		return result.ScriptResult{}, err
+	}
+	defer db.Close()
+	return adapter.RunScriptSQL(ctx, db, script, limit, opts)
 }
 
 func (Provider) BuildSelect(table string, limit int) string {

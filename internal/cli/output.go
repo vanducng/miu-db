@@ -47,6 +47,10 @@ type CLIError struct {
 	Details   map[string]any
 	Retry     bool
 	SafeRetry bool
+	// AlreadyWritten signals the command already emitted its own envelope (e.g. a
+	// partial-failure query script): Execute carries the exit code but does NOT
+	// overwrite stdout with an error-only envelope.
+	AlreadyWritten bool
 }
 
 func (e *CLIError) Error() string { return e.Message }

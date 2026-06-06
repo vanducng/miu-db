@@ -24,6 +24,12 @@ func New() Provider { return Provider{} }
 
 func (Provider) Type() string { return "bigquery" }
 
+// ScriptUnsupportedReason rejects multi-statement scripts: BigQuery scripting
+// returns child-job results that need Job API enumeration, out of scope here.
+func (Provider) ScriptUnsupportedReason() string {
+	return "bigquery scripts are not supported in this version; run statements individually with 'query run'"
+}
+
 // SessionKeys are the per-call --session keys BigQuery accepts. They reuse the
 // existing bigquery_ option convention and map to job/client config, not SQL.
 func (Provider) SessionKeys() []string {

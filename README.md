@@ -87,6 +87,18 @@ miudb query run --connection cnb-snowflake \
   --sql 'select current_role()' --output json
 ```
 
+`query run` executes a single statement. To run several statements in one call,
+use `query script` (Snowflake and MySQL only). It returns `data.results` — an
+array with one entry per statement (`kind` is `rows` or `exec`). Fail-fast by
+default; pass `--atomic` to wrap the script in a transaction (DML-only
+atomicity). Other datasources are rejected with a clear error.
+
+```bash
+miudb query script --connection cnb-snowflake \
+  --session role=SECURITYADMIN \
+  --sql "SHOW USERS LIKE 'alice'; SHOW ROLES LIKE 'analyst'" --output json
+```
+
 Supported secret stores for new connections:
 
 - `keyring`: OS Keychain/keyring service named `miudb` by default.
