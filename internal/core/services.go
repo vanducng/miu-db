@@ -103,6 +103,43 @@ func (s *Services) RunQueryConnectionMeta(ctx context.Context, conn config.Conne
 	return svc.Run(ctx, conn, sqlText, limit, meta)
 }
 
+func (s *Services) RunScript(ctx context.Context, name string, script string, limit int, opts adapter.ScriptOptions) (config.Connection, result.ScriptResult, error) {
+	return s.RunScriptWithSession(ctx, name, script, limit, opts, nil)
+}
+
+// RunScriptWithSession resolves the connection, overlays validated per-call
+// session context, then runs the multi-statement script. Mirrors
+// RunQueryWithSession; rejection (unsupported datasource / session key) happens
+// before any connection opens.
+func (s *Services) RunScriptWithSession(ctx context.Context, name string, script string, limit int, opts adapter.ScriptOptions, session map[string]any) (config.Connection, result.ScriptResult, error) {
+	conn, ok, err := s.FindConnection(name)
+	if err != nil {
+		return config.Connection{}, result.ScriptResult{}, err
+	}
+	if !ok {
+		return config.Connection{}, result.ScriptResult{}, fmt.Errorf("connection %q not found", name)
+	}
+	if len(session) > 0 {
+		provider, pok := s.registry().Get(conn.DBType)
+		if !pok {
+			return conn, result.ScriptResult{}, adapter.MissingProvider(conn.DBType)
+		}
+		conn, err = adapter.ApplySession(provider, conn, session)
+		if err != nil {
+			return conn, result.ScriptResult{}, err
+		}
+	}
+	sr, err := s.RunScriptConnection(ctx, conn, script, limit, opts)
+	return conn, sr, err
+}
+
+func (s *Services) RunScriptConnection(ctx context.Context, conn config.Connection, script string, limit int, opts adapter.ScriptOptions) (result.ScriptResult, error) {
+	ctx, cancel := s.withTimeout(ctx)
+	defer cancel()
+	service := query.Service{Registry: s.registry(), PageStore: s.pageStore()}
+	return service.RunScript(ctx, conn, script, limit, opts)
+}
+
 func (s *Services) FetchPage(cursor string) (result.QueryPage, error) {
 	svc := query.Service{Registry: s.registry(), PageStore: s.pageStore()}
 	return svc.FetchPage(cursor)

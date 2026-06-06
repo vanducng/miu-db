@@ -153,6 +153,22 @@ func errorClass(err error) string {
 	return "query_error"
 }
 
+// RunScript executes a multi-statement script. Strict ScriptRunner opt-in:
+// providers that do not implement it are rejected BEFORE opening a connection.
+func (s *Service) RunScript(ctx context.Context, conn config.Connection, script string, limit int, opts adapter.ScriptOptions) (result.ScriptResult, error) {
+	provider, ok := s.Registry.Get(conn.DBType)
+	if !ok {
+		return result.ScriptResult{}, adapter.MissingProvider(conn.DBType)
+	}
+	runner, err := adapter.ResolveScriptRunner(provider)
+	if err != nil {
+		return result.ScriptResult{}, err
+	}
+	// The runner owns its connection lifecycle (no pre-open) — rejection above
+	// still happens before any connection is touched.
+	return runner.RunScript(ctx, conn, script, limit, opts)
+}
+
 func (s *Service) FetchPage(cursor string) (result.QueryPage, error) {
 	if cursor == "" {
 		return result.QueryPage{}, fmt.Errorf("missing cursor")

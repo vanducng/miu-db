@@ -55,6 +55,10 @@ func Execute(args []string) error {
 	root.SilenceUsage = true
 	root.SilenceErrors = true
 	if err := root.Execute(); err != nil {
+		var already *CLIError
+		if errors.As(err, &already) && already.AlreadyWritten {
+			return err // command emitted its own envelope; just carry the exit code
+		}
 		errorWriter := os.Stdout
 		if isMCPServeCommand(args) {
 			errorWriter = os.Stderr
@@ -655,6 +659,13 @@ func queryCommand(opts *options) *cobra.Command {
 					return &CLIError{Code: "query.unsupported_session_key", Message: uskErr.Error(),
 						Hint: "session keys are provider-specific; see supported keys in the message", Exit: 2}
 				}
+				// Snowflake rejects multi-statement on the default single-statement
+				// path; turn its driver error into an actionable hint.
+				if strings.Contains(err.Error(), "did not match the desired statement count") {
+					return &CLIError{Code: "query.multi_statement_not_allowed",
+						Message: "this looks like a multi-statement query; use 'query script' to run multiple statements in one call",
+						Hint:    "query run executes a single statement", Exit: 2}
+				}
 				if strings.Contains(err.Error(), "not found") {
 					return &CLIError{Code: "connection.not_found", Message: "connection not found", Exit: 2}
 				}
@@ -703,7 +714,80 @@ func queryCommand(opts *options) *cobra.Command {
 		},
 	}
 	fetch.Flags().StringVar(&cursor, "cursor", "", "Cursor returned by query run")
-	cmd.AddCommand(run, fetch)
+
+	var scriptAtomic bool
+	var scriptSessionFlags []string
+	script := &cobra.Command{
+		Use:   "script",
+		Short: "Run a multi-statement SQL script (one result set per statement)",
+		Long:  "Run a multi-statement script against a saved connection. Returns data.results — an array with one entry per statement. Supported on Snowflake and MySQL; other datasources are rejected. Fail-fast: a failing statement stops the script (use --atomic to roll back; DML-only atomicity). --session sets per-call context.",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			if connectionName == "" || sqlText == "" {
+				return &CLIError{Code: "query.missing_input", Message: "connection and sql are required", Exit: 2}
+			}
+			services, err := loadServices(opts)
+			if err != nil {
+				return err
+			}
+			session, err := parseOptionFlags(scriptSessionFlags)
+			if err != nil {
+				return err
+			}
+			conn, sr, err := services.RunScriptWithSession(cmd.Context(), connectionName, sqlText, opts.limit, adapter.ScriptOptions{Atomic: scriptAtomic}, session)
+			if err != nil {
+				var uskErr *adapter.UnsupportedSessionKeyError
+				if errors.As(err, &uskErr) {
+					return &CLIError{Code: "query.unsupported_session_key", Message: uskErr.Error(), Hint: "session keys are provider-specific; see supported keys in the message", Exit: 2}
+				}
+				var unsErr *adapter.UnsupportedScriptError
+				if errors.As(err, &unsErr) {
+					return &CLIError{Code: "query.script_unsupported", Message: unsErr.Error(), Hint: "this datasource does not support multi-statement scripts; run statements individually with 'query run'", Exit: 2}
+				}
+				if strings.Contains(err.Error(), "not found") {
+					return &CLIError{Code: "connection.not_found", Message: "connection not found", Exit: 2}
+				}
+				return err
+			}
+
+			ok := len(sr.Errors) == 0
+			data := map[string]any{"connection": conn.Name, "results": sr.Statements}
+			if len(sr.Errors) > 0 {
+				data["errors"] = sr.Errors
+			}
+			truncated := []int{}
+			for _, st := range sr.Statements {
+				if st.Truncated {
+					truncated = append(truncated, st.Index)
+				}
+			}
+			warnings := []any{}
+			if !ok {
+				warnings = append(warnings, "fail-fast: a statement failed; later statements were not executed; prior side-effects may persist (use --atomic to roll back)")
+			}
+			if writeErr := writeJSON(cmd.OutOrStdout(), Envelope{
+				OK:        ok,
+				Kind:      "query.script_result",
+				Command:   "query script",
+				Summary:   map[string]any{"connection": conn.Name, "db_type": conn.DBType, "executed": len(sr.Statements), "failed": len(sr.Errors)},
+				Data:      data,
+				Page:      map[string]any{"limit": opts.limit, "truncated_statements": truncated},
+				Artifacts: []any{},
+				Warnings:  warnings,
+			}); writeErr != nil {
+				return writeErr
+			}
+			if !ok {
+				return &CLIError{Code: "query.script_failed", Exit: 2, AlreadyWritten: true}
+			}
+			return nil
+		},
+	}
+	script.Flags().StringVar(&connectionName, "connection", "", "Connection name")
+	script.Flags().StringVar(&sqlText, "sql", "", "Multi-statement SQL script")
+	script.Flags().BoolVar(&scriptAtomic, "atomic", false, "Wrap the script in a transaction; rollback on any failure (DML-only atomicity)")
+	script.Flags().StringArrayVar(&scriptSessionFlags, "session", nil, "Per-call session context as key=value (provider-specific). Repeat for multiple.")
+
+	cmd.AddCommand(run, fetch, script)
 	return cmd
 }
 
@@ -879,6 +963,7 @@ func catalog() []commandInfo {
 		{Name: "connections test", Summary: "Test one connection", Stability: "experimental", Mutates: false, SideEffects: []string{"opens_connection", "may_create_tunnel"}},
 		{Name: "connections smoke", Summary: "Run a bounded smoke query across saved connections", Stability: "experimental", Mutates: false, SideEffects: []string{"opens_connections", "may_create_tunnels"}, Examples: []string{"miudb connections smoke --timeout 12s --concurrency 4 --output json"}},
 		{Name: "query run", Summary: "Run SQL against a saved connection", Stability: "experimental", Mutates: false, SideEffects: []string{"opens_connection", "may_create_tunnel", "may_write_page_store"}},
+		{Name: "query script", Summary: "Run a multi-statement SQL script (Snowflake/MySQL); one result set per statement", Stability: "experimental", Mutates: true, SideEffects: []string{"opens_connection", "may_create_tunnel", "may_mutate_data"}, Examples: []string{"miudb query script --connection myconn --sql 'select 1; select 2' --output json"}},
 		{Name: "query fetch-page", Summary: "Fetch a continued result page", Stability: "experimental", Mutates: false},
 		{Name: "schema tree", Summary: "Inspect schema objects", Stability: "experimental", Mutates: false, SideEffects: []string{"opens_connection", "may_create_tunnel"}},
 		{Name: "activity", Summary: "Query captured activity events from the per-session log", Stability: "experimental", Mutates: false, Examples: []string{"miudb activity --connection myconn --since 24h --output json", "miudb activity --failed --since 7d --output json"}},

@@ -58,6 +58,13 @@ func (s *Server) handle(ctx context.Context, req Request) (any, error) {
 		limit := intFromParam(req.Params["limit"], 100)
 		_, outcome, err := s.services().RunQuery(ctx, name, sqlText, limit)
 		return outcome, err
+	case "query.script":
+		name, _ := req.Params["connection"].(string)
+		sqlText, _ := req.Params["sql"].(string)
+		limit := intFromParam(req.Params["limit"], 100)
+		atomic, _ := req.Params["atomic"].(bool)
+		_, sr, err := s.services().RunScript(ctx, name, sqlText, limit, adapter.ScriptOptions{Atomic: atomic})
+		return sr, err
 	case "call.fetch_page":
 		cursor, _ := req.Params["cursor"].(string)
 		return s.services().FetchPage(cursor)

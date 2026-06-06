@@ -79,6 +79,22 @@ type queryRunOutput struct {
 	Limit      int    `json:"limit"`
 }
 
+type queryScriptInput struct {
+	Connection  string `json:"connection" jsonschema:"Saved miudb connection name."`
+	SQL         string `json:"sql" jsonschema:"Multi-statement SQL script; statements separated by ';'."`
+	Limit       int    `json:"limit,omitempty" jsonschema:"Maximum rows returned inline per statement."`
+	Atomic      bool   `json:"atomic,omitempty" jsonschema:"Wrap the script in a transaction; rollback on any failure (DML-only atomicity)."`
+	AllowMutate bool   `json:"allow_mutate,omitempty" jsonschema:"Must be true to run a script that modifies data (INSERT/UPDATE/DELETE/DDL/etc.)."`
+}
+
+type queryScriptOutput struct {
+	Connection string                   `json:"connection"`
+	DBType     string                   `json:"db_type"`
+	Results    []result.StatementResult `json:"results"`
+	Errors     []result.StatementError  `json:"errors,omitempty"`
+	Limit      int                      `json:"limit"`
+}
+
 type queryFetchPageInput struct {
 	Cursor string `json:"cursor" jsonschema:"Continuation cursor returned by query_run or query_fetch_page."`
 }

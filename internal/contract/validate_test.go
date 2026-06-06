@@ -15,6 +15,7 @@ func TestContractExamplesValidate(t *testing.T) {
 		example string
 	}{
 		{"schemas/query-result-v1.schema.json", "testdata/contracts/query-result.json"},
+		{"schemas/script-result-v1.schema.json", "testdata/contracts/script-result.json"},
 		{"schemas/connection-smoke-v1.schema.json", "testdata/contracts/connection-smoke.json"},
 		{"schemas/protocol-jsonrpc-v1.schema.json", "testdata/contracts/protocol-jsonrpc-event.json"},
 		{"schemas/protocol-ndjson-v1.schema.json", "testdata/contracts/protocol-ndjson-event.json"},

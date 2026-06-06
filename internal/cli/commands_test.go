@@ -180,6 +180,32 @@ func TestQueryRunRejectsUnsupportedSessionKey(t *testing.T) {
 	}
 }
 
+func TestQueryScriptRejectsUnsupportedDatasource(t *testing.T) {
+	dir := t.TempDir()
+	writeConnectionsFile(t, filepath.Join(dir, "connections.json"),
+		config.Connection{Name: "lite", DBType: "sqlite", Endpoint: config.Endpoint{Kind: "file", Path: filepath.Join(dir, "app.db")}},
+	)
+	opts := &options{output: "json", limit: 100}
+	cmd := rootCommand(opts)
+	var out bytes.Buffer
+	cmd.SetOut(&out)
+	cmd.SetArgs([]string{"--config-dir", dir, "query", "script", "--connection", "lite", "--sql", "select 1; select 2"})
+	cmd.SilenceUsage = true
+	cmd.SilenceErrors = true
+
+	err := cmd.Execute()
+	if err == nil {
+		t.Fatal("expected error for unsupported datasource")
+	}
+	var cliErr *CLIError
+	if !errors.As(err, &cliErr) {
+		t.Fatalf("expected *CLIError, got %T: %v", err, err)
+	}
+	if cliErr.Code != "query.script_unsupported" || cliErr.Exit != 2 {
+		t.Fatalf("unexpected: code=%q exit=%d", cliErr.Code, cliErr.Exit)
+	}
+}
+
 func TestConnectionsImportBacksUpAndOverwrites(t *testing.T) {
 	dir := t.TempDir()
 	connPath := filepath.Join(dir, "connections.json")

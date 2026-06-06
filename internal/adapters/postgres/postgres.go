@@ -22,6 +22,12 @@ func New() Provider { return Provider{} }
 
 func (Provider) Type() string { return "postgresql" }
 
+// ScriptUnsupportedReason rejects multi-statement scripts: the pgx v5 stdlib
+// (extended protocol) forbids multi-command strings and exposes no NextResultSet.
+func (Provider) ScriptUnsupportedReason() string {
+	return "postgres scripts are not supported (pgx extended protocol forbids multi-command result sets); run statements individually with 'query run'"
+}
+
 func (p Provider) Open(ctx context.Context, conn config.Connection) (*adapter.Session, error) {
 	targetHost, targetPort := conn.Endpoint.Host, defaultString(conn.Endpoint.Port, "5432")
 	closer := func() error { return nil }

@@ -7,6 +7,7 @@ import (
 	"database/sql"
 	"encoding/pem"
 	"fmt"
+	"io"
 	"os"
 	"strings"
 
@@ -15,8 +16,14 @@ import (
 
 	"github.com/vanducng/miu-db/internal/adapter"
 	"github.com/vanducng/miu-db/internal/config"
+	"github.com/vanducng/miu-db/internal/result"
 	"github.com/vanducng/miu-db/internal/schema"
 )
+
+func init() {
+	// Silence gosnowflake's stderr logger; benign chunk-cancel noise on early-stop, real errors surface via return values.
+	gosnowflake.GetLogger().SetOutput(io.Discard)
+}
 
 type Provider struct{}
 
@@ -91,6 +98,26 @@ func (p Provider) Open(ctx context.Context, conn config.Connection) (*adapter.Se
 		return nil, err
 	}
 	return &adapter.Session{DB: db, Provider: p, Config: conn}, nil
+}
+
+// RunScript executes a multi-statement script. WithMultiStatement(ctx, 0) tells
+// the driver to let Snowflake count statements server-side — which intentionally
+// disables gosnowflake's statement-count SQL-injection guard. That is acceptable
+// here because miudb runs the operator's full SQL string verbatim (same trust
+// model as query run); we never concatenate untrusted fragments.
+// Snowflake runs the batch as ONE request, so on mid-batch failure RunScriptSQL
+// cannot recover the successful prefix (reported honestly via index -1).
+func (p Provider) RunScript(ctx context.Context, conn config.Connection, script string, limit int, opts adapter.ScriptOptions) (result.ScriptResult, error) {
+	session, err := p.Open(ctx, conn)
+	if err != nil {
+		return result.ScriptResult{}, err
+	}
+	defer session.Close()
+	msCtx, err := gosnowflake.WithMultiStatement(ctx, 0)
+	if err != nil {
+		return result.ScriptResult{}, err
+	}
+	return adapter.RunScriptSQL(msCtx, session.DB, script, limit, opts)
 }
 
 func (Provider) BuildSelect(table string, limit int) string {
