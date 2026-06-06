@@ -224,6 +224,11 @@ func (s *Store) FindResolved(name string) (Connection, bool, error) {
 			if err != nil {
 				return conn, true, err
 			}
+			if isOAuthConnection(resolved) {
+				if err := resolveOAuth(s.KeyringService, &resolved); err != nil {
+					return resolved, true, err
+				}
+			}
 			return resolved, true, nil
 		}
 	}
@@ -503,9 +508,20 @@ func endpointPasswordRequired(conn Connection) bool {
 		return false
 	case "snowflake":
 		auth, _ := conn.Options["authenticator"].(string)
-		return !strings.EqualFold(auth, "snowflake_jwt")
+		if strings.EqualFold(auth, "snowflake_jwt") || strings.EqualFold(auth, "oauth") {
+			return false
+		}
+		return true
 	}
 	return conn.Endpoint.Username != ""
+}
+
+func isOAuthConnection(conn Connection) bool {
+	if !strings.EqualFold(conn.DBType, "snowflake") {
+		return false
+	}
+	auth, _ := conn.Options["authenticator"].(string)
+	return strings.EqualFold(auth, "oauth")
 }
 
 func resolveTunnelSecret(conn *Connection, resolvers []SecretResolver, timeout time.Duration) error {

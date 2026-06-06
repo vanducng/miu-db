@@ -1,15 +1,17 @@
 package app
 
 import (
+	"github.com/vanducng/miu-db/internal/activity"
 	"github.com/vanducng/miu-db/internal/adapter"
 	"github.com/vanducng/miu-db/internal/config"
 	"github.com/vanducng/miu-db/internal/result"
 )
 
 type App struct {
-	Store     *config.Store
-	Registry  *adapter.Registry
-	PageStore *result.PageStore
+	Store          *config.Store
+	Registry       *adapter.Registry
+	PageStore      *result.PageStore
+	ActivityLogger *activity.Logger
 }
 
 func New(store *config.Store, registry *adapter.Registry, pageStore *result.PageStore) *App {

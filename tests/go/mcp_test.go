@@ -13,6 +13,8 @@ import (
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 	_ "modernc.org/sqlite"
+
+	"github.com/vanducng/miu-db/internal/activity"
 )
 
 func TestMCPCommandTransportSQLiteFlow(t *testing.T) {
@@ -108,6 +110,56 @@ func TestMCPCommandTransportSQLiteFlow(t *testing.T) {
 	}
 	if pageRes.IsError || !strings.Contains(mustMarshalString(t, pageRes.StructuredContent), `"bob"`) {
 		t.Fatalf("query_fetch_page unexpected result: %s", mustMarshalString(t, pageRes))
+	}
+
+	assertActivityCaptured(t, configDir, "miudb-test-client")
+}
+
+// assertActivityCaptured verifies the MCP server wrote activity events under the
+// --config-dir (not the real user dir), attributed them to the connected client,
+// and never leaked result rows (the users table holds 'alice'/'bob').
+func assertActivityCaptured(t *testing.T, configDir, wantClient string) {
+	t.Helper()
+	matches, err := filepath.Glob(filepath.Join(configDir, "activity", "*", "*.jsonl"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(matches) == 0 {
+		t.Fatalf("no activity jsonl written under %s/activity", configDir)
+	}
+	sawClient, sawQuery := false, false
+	for _, m := range matches {
+		data, err := os.ReadFile(m)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if strings.Contains(string(data), "alice") || strings.Contains(string(data), "bob") {
+			t.Errorf("result rows leaked into activity log %s", m)
+		}
+		for _, line := range strings.Split(strings.TrimRight(string(data), "\n"), "\n") {
+			if line == "" {
+				continue
+			}
+			var e activity.Event
+			if err := json.Unmarshal([]byte(line), &e); err != nil {
+				t.Fatalf("activity line not JSON: %v — %s", err, line)
+			}
+			if e.Source != "mcp" {
+				t.Errorf("event source = %q, want mcp", e.Source)
+			}
+			if e.MCPClient == wantClient {
+				sawClient = true
+			}
+			if e.Op == activity.OpQuery {
+				sawQuery = true
+			}
+		}
+	}
+	if !sawClient {
+		t.Errorf("no activity event carried mcp_client=%q", wantClient)
+	}
+	if !sawQuery {
+		t.Errorf("expected at least one query event")
 	}
 }
 

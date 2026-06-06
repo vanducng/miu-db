@@ -10,8 +10,49 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/spf13/cobra"
+
 	"github.com/vanducng/miu-db/internal/config"
 )
+
+func TestIsMCPOrServeContext(t *testing.T) {
+	opts := &options{output: "json", limit: 100}
+	root := rootCommand(opts)
+
+	// Find the `mcp serve` subcommand and verify it is detected as non-interactive.
+	var serveCmd, mcpCmd *cobra.Command
+	for _, sub := range root.Commands() {
+		if sub.Name() == "mcp" {
+			mcpCmd = sub
+			for _, s := range sub.Commands() {
+				if s.Name() == "serve" {
+					serveCmd = s
+				}
+			}
+		}
+	}
+	if serveCmd == nil {
+		t.Fatal("could not find mcp serve subcommand")
+	}
+	_ = mcpCmd
+	if !isMCPOrServeContext(serveCmd) {
+		t.Error("isMCPOrServeContext(mcp serve) = false, want true")
+	}
+
+	// An ordinary leaf command must not be flagged.
+	var connectionsCmd *cobra.Command
+	for _, sub := range root.Commands() {
+		if sub.Name() == "connections" {
+			connectionsCmd = sub
+			break
+		}
+	}
+	if connectionsCmd != nil {
+		if isMCPOrServeContext(connectionsCmd) {
+			t.Error("isMCPOrServeContext(connections) = true, want false")
+		}
+	}
+}
 
 func TestVersionStringPrefersInjectedReleaseVersion(t *testing.T) {
 	previous := version

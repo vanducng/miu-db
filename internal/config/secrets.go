@@ -49,6 +49,9 @@ func SensitiveTargets(conn Connection) []string {
 		targets = append(targets, "tunnel.password")
 	}
 	for key, value := range conn.Options {
+		if strings.HasPrefix(key, "__") {
+			continue
+		}
 		if isSecretKey(key) && fmt.Sprint(value) != "" {
 			targets = append(targets, "options."+key)
 		}
@@ -161,15 +164,28 @@ func newKeyringSecretResolver(service string) (*keyringSecretResolver, error) {
 	return &keyringSecretResolver{service: service}, nil
 }
 
-func openKeyring(service string) (keyring.Keyring, error) {
+// keyringConfig builds the keyring backend config. The FileDir fallback matters
+// for CGO-disabled release builds (goreleaser sets CGO_ENABLED=0), where the OS
+// keychain backend is absent and keyring would otherwise error with "no directory
+// provided for file keyring". On CGO builds the OS keychain stays preferred.
+func keyringConfig(service string) keyring.Config {
 	if service == "" {
 		service = "miudb"
 	}
-	ring, err := keyring.Open(keyring.Config{
+	fileDir := filepath.Join(expandHome(DefaultConfigDir()), "keyring")
+	return keyring.Config{
 		ServiceName:              service,
 		KeychainName:             "login",
 		KeychainTrustApplication: true,
-	})
+		FileDir:                  fileDir,
+		FilePasswordFunc:         keyring.FixedStringPrompt("miudb"),
+	}
+}
+
+func openKeyring(service string) (keyring.Keyring, error) {
+	cfg := keyringConfig(service)
+	_ = os.MkdirAll(cfg.FileDir, 0o700)
+	ring, err := keyring.Open(cfg)
 	if err != nil {
 		return nil, err
 	}

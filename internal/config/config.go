@@ -22,6 +22,7 @@ type Connection struct {
 	Endpoint      Endpoint          `json:"endpoint"`
 	Tunnel        *Tunnel           `json:"tunnel,omitempty"`
 	Secrets       []SecretRef       `json:"secrets,omitempty"`
+	LogSQL        *bool             `json:"log_sql,omitempty"`
 }
 
 // UnmarshalJSON reads the legacy "folder_path" key into Group for backward
@@ -129,6 +130,10 @@ func RedactOptions(options map[string]any) map[string]any {
 	}
 	out := make(map[string]any, len(options))
 	for key, value := range options {
+		// Transient runtime keys (__ prefix) must never appear in any output.
+		if strings.HasPrefix(key, "__") {
+			continue
+		}
 		if isSecretKey(key) {
 			if value != nil && fmt.Sprint(value) != "" {
 				out[key] = map[string]any{"redacted": true}

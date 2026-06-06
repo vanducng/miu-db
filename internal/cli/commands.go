@@ -12,6 +12,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/vanducng/miu-db/internal/activity"
 	"github.com/vanducng/miu-db/internal/adapter"
 	"github.com/vanducng/miu-db/internal/config"
 	"github.com/vanducng/miu-db/internal/core"
@@ -31,6 +32,8 @@ type options struct {
 	gopassPrefix     string
 	limit            int
 	timeout          time.Duration
+	noActivityLog    bool
+	sessionID        string // minted once per invocation in PersistentPreRunE
 }
 
 type commandInfo struct {
@@ -82,6 +85,7 @@ func rootCommand(opts *options) *cobra.Command {
 	root.PersistentFlags().StringVar(&opts.gopassPrefix, "gopass-prefix", "miudb", "gopass path prefix")
 	root.PersistentFlags().IntVar(&opts.limit, "limit", 100, "Maximum rows returned inline")
 	root.PersistentFlags().DurationVar(&opts.timeout, "timeout", 30*time.Second, "Connection/query timeout")
+	root.PersistentFlags().BoolVar(&opts.noActivityLog, "no-activity-log", false, "Disable activity logging for this invocation")
 	root.PersistentPreRunE = func(cmd *cobra.Command, args []string) error {
 		switch opts.output {
 		case "", "json":
@@ -91,6 +95,7 @@ func rootCommand(opts *options) *cobra.Command {
 		default:
 			return &CLIError{Code: "output.invalid_format", Message: fmt.Sprintf("unknown output format %q", opts.output), Hint: "use json or pretty", Exit: 2}
 		}
+		opts.sessionID = activity.NewSessionID("req")
 		return nil
 	}
 	root.AddCommand(versionCommand())
@@ -98,8 +103,10 @@ func rootCommand(opts *options) *cobra.Command {
 	root.AddCommand(commandsCommand(opts))
 	root.AddCommand(describeCommand(opts))
 	root.AddCommand(connectionsCommand(opts))
+	root.AddCommand(authCommand(opts))
 	root.AddCommand(queryCommand(opts))
 	root.AddCommand(schemaCommand(opts))
+	root.AddCommand(activityCommand(opts))
 	root.AddCommand(mcpCommand(opts))
 	root.AddCommand(serveCommand(opts))
 	return root
@@ -183,7 +190,10 @@ func connectionsCommand(opts *options) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			conn, err := services.TestConnection(cmd.Context(), args[0])
+			connName := args[0]
+			retried := false
+		retryTest:
+			conn, err := services.TestConnection(cmd.Context(), connName)
 			if err != nil {
 				if strings.Contains(err.Error(), "not found") {
 					return &CLIError{Code: "connection.not_found", Message: "connection not found", Exit: 2}
@@ -191,7 +201,14 @@ func connectionsCommand(opts *options) *cobra.Command {
 				if strings.Contains(err.Error(), "unsupported database type") {
 					return &CLIError{Code: "adapter.unsupported", Message: adapter.MissingProvider(conn.DBType).Error(), Exit: 2}
 				}
-				return err
+				if lazyErr := maybeLazyLogin(cmd.Context(), opts, connName, err, &retried, isMCPOrServeContext(cmd)); lazyErr != nil {
+					return lazyErr
+				}
+				services, err = loadServices(opts)
+				if err != nil {
+					return err
+				}
+				goto retryTest
 			}
 			return writeSuccess(cmd.OutOrStdout(), "connections test", "connection.test", map[string]any{"name": conn.Name, "ok": true}, map[string]any{"db_type": conn.DBType})
 		},
@@ -424,7 +441,7 @@ func connectionsSmokeCommand(opts *options) *cobra.Command {
 							results[idx] = smokeResolveError(conns[idx], err)
 							continue
 						}
-						results[idx] = runSmoke(cmd.Context(), services, conn, sqlText, opts.limit)
+						results[idx] = runSmoke(cmd.Context(), services, conn, sqlText, opts.limit, opts.captureMeta())
 					}
 				}()
 			}
@@ -498,7 +515,7 @@ func selectConnections(conns []config.Connection, names []string) []config.Conne
 	return out
 }
 
-func runSmoke(parent context.Context, services *core.Services, conn config.Connection, sqlText string, limit int) smokeResult {
+func runSmoke(parent context.Context, services *core.Services, conn config.Connection, sqlText string, limit int, meta activity.CaptureMeta) smokeResult {
 	start := time.Now()
 	ctx := parent
 	cancel := func() {}
@@ -506,7 +523,7 @@ func runSmoke(parent context.Context, services *core.Services, conn config.Conne
 		ctx, cancel = context.WithTimeout(parent, services.Timeout)
 	}
 	defer cancel()
-	outcome, err := services.RunQueryConnection(ctx, conn, sqlText, limit)
+	outcome, err := services.RunQueryConnectionMeta(ctx, conn, sqlText, limit, meta)
 	res := smokeResult{Name: conn.Name, DBType: conn.DBType, DurationMS: time.Since(start).Milliseconds()}
 	if err != nil {
 		info := errorInfo(err)
@@ -633,7 +650,9 @@ func queryCommand(opts *options) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			conn, outcome, err := services.RunQueryWithSession(cmd.Context(), connectionName, sqlText, opts.limit, session)
+			retried := false
+		retryQuery:
+			conn, outcome, err := services.RunQueryWithMeta(cmd.Context(), connectionName, sqlText, opts.limit, session, opts.captureMeta())
 			if err != nil {
 				var uskErr *adapter.UnsupportedSessionKeyError
 				if errors.As(err, &uskErr) {
@@ -650,7 +669,15 @@ func queryCommand(opts *options) *cobra.Command {
 				if strings.Contains(err.Error(), "not found") {
 					return &CLIError{Code: "connection.not_found", Message: "connection not found", Exit: 2}
 				}
-				return err
+				if lazyErr := maybeLazyLogin(cmd.Context(), opts, connectionName, err, &retried, isMCPOrServeContext(cmd)); lazyErr != nil {
+					return lazyErr
+				}
+				// token stored; reload services so FindResolved picks it up
+				services, err = loadServices(opts)
+				if err != nil {
+					return err
+				}
+				goto retryQuery
 			}
 			envData := map[string]any{"connection": conn.Name, "result": outcome.Result}
 			page := map[string]any{"limit": opts.limit}
@@ -775,7 +802,9 @@ func schemaCommand(opts *options) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			conn, data, err := services.SchemaTree(cmd.Context(), connectionName)
+			retried := false
+		retrySchema:
+			conn, data, err := services.SchemaTreeWithMeta(cmd.Context(), connectionName, opts.captureMeta())
 			if err != nil {
 				if strings.Contains(err.Error(), "not found") {
 					return &CLIError{Code: "connection.not_found", Message: "connection not found", Exit: 2}
@@ -783,7 +812,14 @@ func schemaCommand(opts *options) *cobra.Command {
 				if strings.Contains(err.Error(), "unsupported database type") {
 					return &CLIError{Code: "adapter.unsupported", Message: adapter.MissingProvider(conn.DBType).Error(), Exit: 2}
 				}
-				return err
+				if lazyErr := maybeLazyLogin(cmd.Context(), opts, connectionName, err, &retried, isMCPOrServeContext(cmd)); lazyErr != nil {
+					return lazyErr
+				}
+				services, err = loadServices(opts)
+				if err != nil {
+					return err
+				}
+				goto retrySchema
 			}
 			return writeSuccess(cmd.OutOrStdout(), "schema tree", "schema.tree", data, map[string]any{"connection": conn.Name})
 		},
@@ -906,7 +942,14 @@ func loadServices(opts *options) (*core.Services, error) {
 	if err != nil {
 		return nil, err
 	}
-	return core.NewServices(store, opts.timeout), nil
+	svc := core.NewServices(store, opts.timeout)
+	enabled := !opts.noActivityLog && os.Getenv("MIUDB_ACTIVITY_LOG") != "off"
+	svc.Logger = activity.New(activity.Options{Root: activityRoot(opts), Enabled: enabled})
+	return svc, nil
+}
+
+func (opts *options) captureMeta() activity.CaptureMeta {
+	return activity.CaptureMeta{SessionID: opts.sessionID, Source: "cli"}
 }
 
 func catalog() []commandInfo {
@@ -920,10 +963,16 @@ func catalog() []commandInfo {
 		{Name: "connections test", Summary: "Test one connection", Stability: "experimental", Mutates: false, SideEffects: []string{"opens_connection", "may_create_tunnel"}},
 		{Name: "connections smoke", Summary: "Run a bounded smoke query across saved connections", Stability: "experimental", Mutates: false, SideEffects: []string{"opens_connections", "may_create_tunnels"}, Examples: []string{"miudb connections smoke --timeout 12s --concurrency 4 --output json"}},
 		{Name: "query run", Summary: "Run SQL against a saved connection", Stability: "experimental", Mutates: false, SideEffects: []string{"opens_connection", "may_create_tunnel", "may_write_page_store"}},
+		{Name: "query script", Summary: "Run a multi-statement SQL script (Snowflake/MySQL); one result set per statement", Stability: "experimental", Mutates: true, SideEffects: []string{"opens_connection", "may_create_tunnel", "may_mutate_data"}, Examples: []string{"miudb query script --connection myconn --sql 'select 1; select 2' --output json"}},
 		{Name: "query fetch-page", Summary: "Fetch a continued result page", Stability: "experimental", Mutates: false},
 		{Name: "schema tree", Summary: "Inspect schema objects", Stability: "experimental", Mutates: false, SideEffects: []string{"opens_connection", "may_create_tunnel"}},
+		{Name: "activity", Summary: "Query captured activity events from the per-session log", Stability: "experimental", Mutates: false, Examples: []string{"miudb activity --connection myconn --since 24h --output json", "miudb activity --failed --since 7d --output json"}},
+		{Name: "activity prune", Summary: "Delete activity log day-directories older than a cutoff", Stability: "experimental", Mutates: true, SideEffects: []string{"deletes_activity_log_files"}, Examples: []string{"miudb activity prune --older-than 30d --dry-run --output json"}},
 		{Name: "mcp serve", Summary: "Serve standard MCP over stdio", Stability: "experimental", Mutates: false, SideEffects: []string{"opens_connections", "may_create_tunnels"}},
 		{Name: "serve", Summary: "Serve JSON-RPC or NDJSON over stdio", Stability: "experimental", Mutates: false},
+		{Name: "auth login", Summary: "Acquire and store an OAuth token for a connection", Stability: "experimental", Mutates: true, SideEffects: []string{"opens_browser", "may_write_keyring"}, Examples: []string{"miudb auth login myconn --output json"}},
+		{Name: "auth status", Summary: "Show OAuth token presence and expiry for a connection", Stability: "experimental", Mutates: false, Examples: []string{"miudb auth status myconn --output json"}},
+		{Name: "auth logout", Summary: "Remove the stored OAuth token for a connection", Stability: "experimental", Mutates: true, SideEffects: []string{"may_write_keyring"}, Examples: []string{"miudb auth logout myconn --output json"}},
 	}
 }
 
@@ -940,6 +989,18 @@ func commandPath(args []string) string {
 func isMCPServeCommand(args []string) bool {
 	for i := 0; i < len(args)-1; i++ {
 		if args[i] == "mcp" && args[i+1] == "serve" {
+			return true
+		}
+	}
+	return false
+}
+
+// isMCPOrServeContext returns true when cmd is running under `mcp serve` or
+// the top-level `serve` command, which must never open a browser.
+// Walks the command/parent chain to avoid brittle substring matching.
+func isMCPOrServeContext(cmd *cobra.Command) bool {
+	for c := cmd; c != nil; c = c.Parent() {
+		if c.Name() == "serve" {
 			return true
 		}
 	}

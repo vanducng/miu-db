@@ -59,7 +59,9 @@ func buildConfig(conn config.Connection) (*gosnowflake.Config, error) {
 	if v, ok := conn.Options["role"].(string); ok && v != "" {
 		cfg.Role = v
 	}
-	if auth, ok := conn.Options["authenticator"].(string); ok && strings.EqualFold(auth, "snowflake_jwt") {
+	auth, _ := conn.Options["authenticator"].(string)
+	switch {
+	case strings.EqualFold(auth, "snowflake_jwt"):
 		cfg.Authenticator = gosnowflake.AuthTypeJwt
 		keyPath, _ := conn.Options["private_key_file"].(string)
 		key, err := loadPrivateKey(keyPath)
@@ -67,6 +69,13 @@ func buildConfig(conn config.Connection) (*gosnowflake.Config, error) {
 			return nil, err
 		}
 		cfg.PrivateKey = key
+	case strings.EqualFold(auth, "oauth"):
+		tok, _ := conn.Options["__oauth_access_token"].(string)
+		if tok == "" {
+			return nil, fmt.Errorf("snowflake oauth: no access token (run miudb auth login)")
+		}
+		cfg.Authenticator = gosnowflake.AuthTypeOAuth
+		cfg.Token = tok
 	}
 	return cfg, nil
 }
