@@ -51,6 +51,26 @@ Flags: `--stub` (required), `--connection` (required), `--schema`, `--out-dir`,
 
 Returns `kind: erd.meta` with `artifacts: [path/to/meta.json]`.
 
+## Using the diagram
+
+The generated `index.html` is a fully-offline interactive viewer:
+
+- **Navigate** — scroll to zoom, drag the background to pan, drag a table to move
+  it (positions persist); the minimap (top-right) and `Fit` / `Re-layout` reframe.
+- **Explore relationships** — click a table to spotlight it and its FK chain
+  (selectable depth); click a relationship line to highlight the two joined tables
+  and their join columns; **double-click** a table for the details drawer (columns,
+  types, PK/FK/audit, `ON DELETE`, incoming refs, indexes).
+- **Filter** — live search (tables + columns); **Domain groups** checkboxes with
+  **all** / **clear** to isolate one domain; toggle framework tables, audit columns,
+  and `Columns on nodes`; hide individual tables (card `×`, restore via "show N hidden").
+- **Find path** — shortest FK chain between two tables.
+- **Insights** — lints the schema (missing PK, FK type mismatch, unindexed FK, orphans).
+- **DBML** — opens the DBML source (dbdiagram.io / dbdocs format) with a Copy button.
+- **Share** — copies a link with your filters and selection encoded in the URL.
+- The header shows **visible/total** tables, columns, and relationships (live as you
+  filter). Hover a truncated table/column name for the full value; `?` lists shortcuts.
+
 ## Two-layer model
 
 ```

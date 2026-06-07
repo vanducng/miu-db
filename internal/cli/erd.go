@@ -105,6 +105,17 @@ func erdGenerateCommand(opts *options) *cobra.Command {
 				artifacts[i] = f
 			}
 
+			warnings := []any{}
+			htmlGen := false
+			for _, f := range formats {
+				if strings.EqualFold(f, "html") {
+					htmlGen = true
+				}
+			}
+			if htmlGen && (metaPtr == nil || len(metaPtr.Groups) == 0) {
+				warnings = append(warnings, "no domain groups in meta — tables render as Framework/Other (no colors); author meta.groups (domain -> {color, tables}) for colored domains. Start with 'erd meta --stub' and the miudb skill ERD recipe.")
+			}
+
 			return writeJSON(cmd.OutOrStdout(), Envelope{
 				OK:      true,
 				Kind:    "erd.generate",
@@ -121,7 +132,7 @@ func erdGenerateCommand(opts *options) *cobra.Command {
 					"formats": formats,
 				},
 				Artifacts: artifacts,
-				Warnings:  []any{},
+				Warnings:  warnings,
 			})
 		},
 	}
@@ -352,11 +363,14 @@ func erdMetaCommand(opts *options) *cobra.Command {
 			}
 
 			return writeJSON(cmd.OutOrStdout(), Envelope{
-				OK:        true,
-				Kind:      "erd.meta",
-				Command:   "erd meta",
-				Summary:   map[string]any{"connection": connName, "output": outPath},
-				Data:      map[string]any{"output": outPath},
+				OK:      true,
+				Kind:    "erd.meta",
+				Command: "erd meta",
+				Summary: map[string]any{"connection": connName, "output": outPath},
+				Data: map[string]any{
+					"output":    outPath,
+					"next_step": "Enrich meta.json for colored domains: set 'groups' (domain name -> {color:'#hex', tables:[...]}) and fill 'descriptions'. Cluster tables by FK topology + name prefixes; framework_tables are pre-detected and hidden. Then re-run 'erd generate'/'erd serve'.",
+				},
 				Artifacts: []any{outPath},
 				Warnings:  []any{},
 			})
