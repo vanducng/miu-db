@@ -46,7 +46,7 @@ type commandInfo struct {
 	Examples    []string `json:"examples"`
 }
 
-var version = "v0.3.0" // x-release-please-version
+var version = "v0.4.0" // x-release-please-version
 
 func Execute(args []string) error {
 	opts := &options{output: "json", limit: 100, timeout: 30 * time.Second}
