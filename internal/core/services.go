@@ -13,6 +13,7 @@ import (
 	"github.com/vanducng/miu-db/internal/adapters/snowflake"
 	"github.com/vanducng/miu-db/internal/adapters/sqlite"
 	"github.com/vanducng/miu-db/internal/config"
+	"github.com/vanducng/miu-db/internal/erd"
 	"github.com/vanducng/miu-db/internal/query"
 	"github.com/vanducng/miu-db/internal/result"
 )
@@ -198,6 +199,64 @@ func (s *Services) emitSchemaEvent(conn config.Connection, meta activity.Capture
 	if runErr != nil {
 		ev.Error = &activity.EventError{
 			Class:   "schema_error",
+			Message: runErr.Error(),
+		}
+	}
+	s.Logger.Log(ev)
+}
+
+// GenerateERD resolves and opens the named connection, delegates to erd.Generate,
+// emits an activity event, and returns the generation result.
+func (s *Services) GenerateERD(ctx context.Context, name string, opts erd.GenerateOpts, meta activity.CaptureMeta) (erd.Result, error) {
+	conn, ok, err := s.FindConnection(name)
+	if err != nil {
+		return erd.Result{}, err
+	}
+	if !ok {
+		return erd.Result{}, fmt.Errorf("connection %q not found", name)
+	}
+	ctx, cancel := s.withTimeout(ctx)
+	defer cancel()
+	provider, ok := s.registry().Get(conn.DBType)
+	if !ok {
+		return erd.Result{}, adapter.MissingProvider(conn.DBType)
+	}
+
+	start := time.Now()
+	session, err := provider.Open(ctx, conn)
+	if err != nil {
+		s.emitERDEvent(conn, meta, start, err)
+		return erd.Result{}, err
+	}
+	defer session.Close()
+
+	result, genErr := erd.Generate(ctx, session.DB, conn.DBType, opts)
+	s.emitERDEvent(conn, meta, start, genErr)
+	return result, genErr
+}
+
+func (s *Services) emitERDEvent(conn config.Connection, meta activity.CaptureMeta, start time.Time, runErr error) {
+	if s.Logger == nil || meta.SessionID == "" {
+		return
+	}
+	defer func() { recover() }() //nolint:errcheck
+
+	now := time.Now().UTC()
+	ev := activity.Event{
+		EventID:    activity.NewSessionID("ev"),
+		SessionID:  meta.SessionID,
+		Ts:         now.Format(time.RFC3339Nano),
+		Source:     meta.Source,
+		MCPClient:  meta.MCPClient,
+		Op:         activity.OpERD,
+		Connection: conn.Name,
+		Group:      conn.Group,
+		DBType:     conn.DBType,
+		LatencyMs:  time.Since(start).Milliseconds(),
+	}
+	if runErr != nil {
+		ev.Error = &activity.EventError{
+			Class:   "erd_error",
 			Message: runErr.Error(),
 		}
 	}

@@ -106,6 +106,7 @@ func rootCommand(opts *options) *cobra.Command {
 	root.AddCommand(authCommand(opts))
 	root.AddCommand(queryCommand(opts))
 	root.AddCommand(schemaCommand(opts))
+	root.AddCommand(erdCommand(opts))
 	root.AddCommand(activityCommand(opts))
 	root.AddCommand(mcpCommand(opts))
 	root.AddCommand(serveCommand(opts))
@@ -966,6 +967,7 @@ func catalog() []commandInfo {
 		{Name: "query script", Summary: "Run a multi-statement SQL script (Snowflake/MySQL); one result set per statement", Stability: "experimental", Mutates: true, SideEffects: []string{"opens_connection", "may_create_tunnel", "may_mutate_data"}, Examples: []string{"miudb query script --connection myconn --sql 'select 1; select 2' --output json"}},
 		{Name: "query fetch-page", Summary: "Fetch a continued result page", Stability: "experimental", Mutates: false},
 		{Name: "schema tree", Summary: "Inspect schema objects", Stability: "experimental", Mutates: false, SideEffects: []string{"opens_connection", "may_create_tunnel"}},
+		{Name: "erd generate", Summary: "Introspect a connection and write schema.json + schema.dbml to disk", Stability: "experimental", Mutates: false, SideEffects: []string{"opens_connection", "may_create_tunnel"}, Examples: []string{"miudb erd generate --connection myconn --format json,dbml --out-dir .diagrams/myconn-erd/ --output json"}},
 		{Name: "activity", Summary: "Query captured activity events from the per-session log", Stability: "experimental", Mutates: false, Examples: []string{"miudb activity --connection myconn --since 24h --output json", "miudb activity --failed --since 7d --output json"}},
 		{Name: "activity prune", Summary: "Delete activity log day-directories older than a cutoff", Stability: "experimental", Mutates: true, SideEffects: []string{"deletes_activity_log_files"}, Examples: []string{"miudb activity prune --older-than 30d --dry-run --output json"}},
 		{Name: "mcp serve", Summary: "Serve standard MCP over stdio", Stability: "experimental", Mutates: false, SideEffects: []string{"opens_connections", "may_create_tunnels"}},
