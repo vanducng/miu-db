@@ -8,6 +8,7 @@ const (
 	OpExec   OpKind = "exec"
 	OpSchema OpKind = "schema"
 	OpSmoke  OpKind = "smoke"
+	OpERD    OpKind = "erd"
 )
 
 // EventError carries structured error info; never contains result rows.

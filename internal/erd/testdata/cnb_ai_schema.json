@@ -1,0 +1,949 @@
+[
+  {
+    "table": "agent_template_variables",
+    "rows": 0,
+    "pk": [
+      "id"
+    ],
+    "columns": [
+      {
+        "column": "id",
+        "type": "bigint",
+        "udt": "bigint unsigned",
+        "nullable": "NO",
+        "default": null,
+        "ord": 1
+      },
+      {
+        "column": "agent_template_id",
+        "type": "bigint",
+        "udt": "bigint unsigned",
+        "nullable": "NO",
+        "default": null,
+        "ord": 2
+      },
+      {
+        "column": "parent_agent_template_variable_id",
+        "type": "bigint",
+        "udt": "bigint unsigned",
+        "nullable": "YES",
+        "default": null,
+        "ord": 3
+      },
+      {
+        "column": "variable",
+        "type": "varchar",
+        "udt": "varchar(255)",
+        "nullable": "NO",
+        "default": null,
+        "ord": 4
+      },
+      {
+        "column": "label",
+        "type": "varchar",
+        "udt": "varchar(255)",
+        "nullable": "NO",
+        "default": null,
+        "ord": 5
+      },
+      {
+        "column": "variable_type",
+        "type": "varchar",
+        "udt": "varchar(255)",
+        "nullable": "NO",
+        "default": "text",
+        "ord": 6
+      },
+      {
+        "column": "help_text",
+        "type": "text",
+        "udt": "text",
+        "nullable": "YES",
+        "default": null,
+        "ord": 7
+      },
+      {
+        "column": "default_value",
+        "type": "text",
+        "udt": "text",
+        "nullable": "YES",
+        "default": null,
+        "ord": 8
+      },
+      {
+        "column": "select_options",
+        "type": "json",
+        "udt": "json",
+        "nullable": "YES",
+        "default": null,
+        "ord": 9
+      },
+      {
+        "column": "parent_option",
+        "type": "varchar",
+        "udt": "varchar(10)",
+        "nullable": "YES",
+        "default": null,
+        "ord": 10
+      },
+      {
+        "column": "created_at",
+        "type": "timestamp",
+        "udt": "timestamp",
+        "nullable": "YES",
+        "default": null,
+        "ord": 11
+      },
+      {
+        "column": "updated_at",
+        "type": "timestamp",
+        "udt": "timestamp",
+        "nullable": "YES",
+        "default": null,
+        "ord": 12
+      }
+    ],
+    "fks": [
+      {
+        "column": "agent_template_id",
+        "ref_table": "agent_templates",
+        "ref_column": "id",
+        "on_delete": "CASCADE",
+        "constraint": "agent_template_variables_agent_template_id_foreign"
+      },
+      {
+        "column": "parent_agent_template_variable_id",
+        "ref_table": "agent_template_variables",
+        "ref_column": "id",
+        "on_delete": "CASCADE",
+        "constraint": "agent_template_variables_parent_var_foreign"
+      }
+    ],
+    "indexes": [
+      {
+        "name": "agent_template_variables_agent_template_id_variable_unique",
+        "def": "UNIQUE INDEX agent_template_variables_agent_template_id_variable_unique (agent_template_id, variable)"
+      },
+      {
+        "name": "parent_var_id_option_unique",
+        "def": "INDEX parent_var_id_option_unique (parent_agent_template_variable_id, parent_option)"
+      }
+    ]
+  },
+  {
+    "table": "agent_templates",
+    "rows": 1,
+    "pk": [
+      "id"
+    ],
+    "columns": [
+      {
+        "column": "id",
+        "type": "bigint",
+        "udt": "bigint unsigned",
+        "nullable": "NO",
+        "default": null,
+        "ord": 1
+      },
+      {
+        "column": "name",
+        "type": "varchar",
+        "udt": "varchar(255)",
+        "nullable": "NO",
+        "default": null,
+        "ord": 2
+      },
+      {
+        "column": "description",
+        "type": "varchar",
+        "udt": "varchar(500)",
+        "nullable": "YES",
+        "default": null,
+        "ord": 3
+      },
+      {
+        "column": "agent_id",
+        "type": "varchar",
+        "udt": "varchar(255)",
+        "nullable": "NO",
+        "default": null,
+        "ord": 4
+      },
+      {
+        "column": "created_at",
+        "type": "timestamp",
+        "udt": "timestamp",
+        "nullable": "YES",
+        "default": null,
+        "ord": 5
+      },
+      {
+        "column": "updated_at",
+        "type": "timestamp",
+        "udt": "timestamp",
+        "nullable": "YES",
+        "default": null,
+        "ord": 6
+      },
+      {
+        "column": "type",
+        "type": "varchar",
+        "udt": "varchar(255)",
+        "nullable": "NO",
+        "default": "voice_agent",
+        "ord": 7
+      }
+    ],
+    "fks": [],
+    "indexes": [
+      {
+        "name": "agent_templates_agent_id_unique",
+        "def": "UNIQUE INDEX agent_templates_agent_id_unique (agent_id)"
+      }
+    ]
+  },
+  {
+    "table": "ai_agent_variable_values",
+    "rows": 0,
+    "pk": [
+      "id"
+    ],
+    "columns": [
+      {
+        "column": "id",
+        "type": "bigint",
+        "udt": "bigint unsigned",
+        "nullable": "NO",
+        "default": null,
+        "ord": 1
+      },
+      {
+        "column": "ai_agent_id",
+        "type": "bigint",
+        "udt": "bigint unsigned",
+        "nullable": "NO",
+        "default": null,
+        "ord": 2
+      },
+      {
+        "column": "agent_template_variable_id",
+        "type": "bigint",
+        "udt": "bigint unsigned",
+        "nullable": "NO",
+        "default": null,
+        "ord": 3
+      },
+      {
+        "column": "value",
+        "type": "text",
+        "udt": "text",
+        "nullable": "YES",
+        "default": null,
+        "ord": 4
+      },
+      {
+        "column": "created_at",
+        "type": "timestamp",
+        "udt": "timestamp",
+        "nullable": "YES",
+        "default": null,
+        "ord": 5
+      },
+      {
+        "column": "updated_at",
+        "type": "timestamp",
+        "udt": "timestamp",
+        "nullable": "YES",
+        "default": null,
+        "ord": 6
+      }
+    ],
+    "fks": [
+      {
+        "column": "agent_template_variable_id",
+        "ref_table": "agent_template_variables",
+        "ref_column": "id",
+        "on_delete": "CASCADE",
+        "constraint": "ai_agent_variable_values_agent_template_variable_id_foreign"
+      },
+      {
+        "column": "ai_agent_id",
+        "ref_table": "ai_agents",
+        "ref_column": "id",
+        "on_delete": "CASCADE",
+        "constraint": "ai_agent_variable_values_ai_agent_id_foreign"
+      }
+    ],
+    "indexes": [
+      {
+        "name": "ai_agent_variable_values_agent_id_var_id_unique",
+        "def": "UNIQUE INDEX ai_agent_variable_values_agent_id_var_id_unique (ai_agent_id, agent_template_variable_id)"
+      },
+      {
+        "name": "ai_agent_variable_values_agent_template_variable_id_foreign",
+        "def": "INDEX ai_agent_variable_values_agent_template_variable_id_foreign (agent_template_variable_id)"
+      }
+    ]
+  },
+  {
+    "table": "ai_agents",
+    "rows": 0,
+    "pk": [
+      "id"
+    ],
+    "columns": [
+      {
+        "column": "id",
+        "type": "bigint",
+        "udt": "bigint unsigned",
+        "nullable": "NO",
+        "default": null,
+        "ord": 1
+      },
+      {
+        "column": "name",
+        "type": "varchar",
+        "udt": "varchar(255)",
+        "nullable": "NO",
+        "default": null,
+        "ord": 2
+      },
+      {
+        "column": "agent_trigger",
+        "type": "varchar",
+        "udt": "varchar(255)",
+        "nullable": "NO",
+        "default": "Qualified Application To CDL Job Now",
+        "ord": 3
+      },
+      {
+        "column": "agent_template_id",
+        "type": "bigint",
+        "udt": "bigint unsigned",
+        "nullable": "NO",
+        "default": null,
+        "ord": 4
+      },
+      {
+        "column": "phone_number",
+        "type": "varchar",
+        "udt": "varchar(255)",
+        "nullable": "NO",
+        "default": null,
+        "ord": 5
+      },
+      {
+        "column": "voice_id",
+        "type": "varchar",
+        "udt": "varchar(255)",
+        "nullable": "NO",
+        "default": null,
+        "ord": 6
+      },
+      {
+        "column": "pre_call_hooks",
+        "type": "json",
+        "udt": "json",
+        "nullable": "YES",
+        "default": null,
+        "ord": 7
+      },
+      {
+        "column": "post_call_hooks",
+        "type": "json",
+        "udt": "json",
+        "nullable": "YES",
+        "default": null,
+        "ord": 8
+      },
+      {
+        "column": "created_at",
+        "type": "timestamp",
+        "udt": "timestamp",
+        "nullable": "YES",
+        "default": null,
+        "ord": 9
+      },
+      {
+        "column": "updated_at",
+        "type": "timestamp",
+        "udt": "timestamp",
+        "nullable": "YES",
+        "default": null,
+        "ord": 10
+      }
+    ],
+    "fks": [
+      {
+        "column": "agent_template_id",
+        "ref_table": "agent_templates",
+        "ref_column": "id",
+        "on_delete": "CASCADE",
+        "constraint": "ai_agents_agent_template_id_foreign"
+      }
+    ],
+    "indexes": [
+      {
+        "name": "ai_agents_agent_template_id_foreign",
+        "def": "INDEX ai_agents_agent_template_id_foreign (agent_template_id)"
+      }
+    ]
+  },
+  {
+    "table": "cache",
+    "rows": 2,
+    "pk": [
+      "key"
+    ],
+    "columns": [
+      {
+        "column": "key",
+        "type": "varchar",
+        "udt": "varchar(255)",
+        "nullable": "NO",
+        "default": null,
+        "ord": 1
+      },
+      {
+        "column": "value",
+        "type": "mediumtext",
+        "udt": "mediumtext",
+        "nullable": "NO",
+        "default": null,
+        "ord": 2
+      },
+      {
+        "column": "expiration",
+        "type": "int",
+        "udt": "int",
+        "nullable": "NO",
+        "default": null,
+        "ord": 3
+      }
+    ],
+    "fks": [],
+    "indexes": [
+      {
+        "name": "cache_expiration_index",
+        "def": "INDEX cache_expiration_index (expiration)"
+      }
+    ]
+  },
+  {
+    "table": "cache_locks",
+    "rows": 0,
+    "pk": [
+      "key"
+    ],
+    "columns": [
+      {
+        "column": "key",
+        "type": "varchar",
+        "udt": "varchar(255)",
+        "nullable": "NO",
+        "default": null,
+        "ord": 1
+      },
+      {
+        "column": "owner",
+        "type": "varchar",
+        "udt": "varchar(255)",
+        "nullable": "NO",
+        "default": null,
+        "ord": 2
+      },
+      {
+        "column": "expiration",
+        "type": "int",
+        "udt": "int",
+        "nullable": "NO",
+        "default": null,
+        "ord": 3
+      }
+    ],
+    "fks": [],
+    "indexes": [
+      {
+        "name": "cache_locks_expiration_index",
+        "def": "INDEX cache_locks_expiration_index (expiration)"
+      }
+    ]
+  },
+  {
+    "table": "failed_jobs",
+    "rows": 0,
+    "pk": [
+      "id"
+    ],
+    "columns": [
+      {
+        "column": "id",
+        "type": "bigint",
+        "udt": "bigint unsigned",
+        "nullable": "NO",
+        "default": null,
+        "ord": 1
+      },
+      {
+        "column": "uuid",
+        "type": "varchar",
+        "udt": "varchar(255)",
+        "nullable": "NO",
+        "default": null,
+        "ord": 2
+      },
+      {
+        "column": "connection",
+        "type": "text",
+        "udt": "text",
+        "nullable": "NO",
+        "default": null,
+        "ord": 3
+      },
+      {
+        "column": "queue",
+        "type": "text",
+        "udt": "text",
+        "nullable": "NO",
+        "default": null,
+        "ord": 4
+      },
+      {
+        "column": "payload",
+        "type": "longtext",
+        "udt": "longtext",
+        "nullable": "NO",
+        "default": null,
+        "ord": 5
+      },
+      {
+        "column": "exception",
+        "type": "longtext",
+        "udt": "longtext",
+        "nullable": "NO",
+        "default": null,
+        "ord": 6
+      },
+      {
+        "column": "failed_at",
+        "type": "timestamp",
+        "udt": "timestamp",
+        "nullable": "NO",
+        "default": "CURRENT_TIMESTAMP",
+        "ord": 7
+      }
+    ],
+    "fks": [],
+    "indexes": [
+      {
+        "name": "failed_jobs_uuid_unique",
+        "def": "UNIQUE INDEX failed_jobs_uuid_unique (uuid)"
+      }
+    ]
+  },
+  {
+    "table": "job_batches",
+    "rows": 0,
+    "pk": [
+      "id"
+    ],
+    "columns": [
+      {
+        "column": "id",
+        "type": "varchar",
+        "udt": "varchar(255)",
+        "nullable": "NO",
+        "default": null,
+        "ord": 1
+      },
+      {
+        "column": "name",
+        "type": "varchar",
+        "udt": "varchar(255)",
+        "nullable": "NO",
+        "default": null,
+        "ord": 2
+      },
+      {
+        "column": "total_jobs",
+        "type": "int",
+        "udt": "int",
+        "nullable": "NO",
+        "default": null,
+        "ord": 3
+      },
+      {
+        "column": "pending_jobs",
+        "type": "int",
+        "udt": "int",
+        "nullable": "NO",
+        "default": null,
+        "ord": 4
+      },
+      {
+        "column": "failed_jobs",
+        "type": "int",
+        "udt": "int",
+        "nullable": "NO",
+        "default": null,
+        "ord": 5
+      },
+      {
+        "column": "failed_job_ids",
+        "type": "longtext",
+        "udt": "longtext",
+        "nullable": "NO",
+        "default": null,
+        "ord": 6
+      },
+      {
+        "column": "options",
+        "type": "mediumtext",
+        "udt": "mediumtext",
+        "nullable": "YES",
+        "default": null,
+        "ord": 7
+      },
+      {
+        "column": "cancelled_at",
+        "type": "int",
+        "udt": "int",
+        "nullable": "YES",
+        "default": null,
+        "ord": 8
+      },
+      {
+        "column": "created_at",
+        "type": "int",
+        "udt": "int",
+        "nullable": "NO",
+        "default": null,
+        "ord": 9
+      },
+      {
+        "column": "finished_at",
+        "type": "int",
+        "udt": "int",
+        "nullable": "YES",
+        "default": null,
+        "ord": 10
+      }
+    ],
+    "fks": [],
+    "indexes": []
+  },
+  {
+    "table": "jobs",
+    "rows": 0,
+    "pk": [
+      "id"
+    ],
+    "columns": [
+      {
+        "column": "id",
+        "type": "bigint",
+        "udt": "bigint unsigned",
+        "nullable": "NO",
+        "default": null,
+        "ord": 1
+      },
+      {
+        "column": "queue",
+        "type": "varchar",
+        "udt": "varchar(255)",
+        "nullable": "NO",
+        "default": null,
+        "ord": 2
+      },
+      {
+        "column": "payload",
+        "type": "longtext",
+        "udt": "longtext",
+        "nullable": "NO",
+        "default": null,
+        "ord": 3
+      },
+      {
+        "column": "attempts",
+        "type": "tinyint",
+        "udt": "tinyint unsigned",
+        "nullable": "NO",
+        "default": null,
+        "ord": 4
+      },
+      {
+        "column": "reserved_at",
+        "type": "int",
+        "udt": "int unsigned",
+        "nullable": "YES",
+        "default": null,
+        "ord": 5
+      },
+      {
+        "column": "available_at",
+        "type": "int",
+        "udt": "int unsigned",
+        "nullable": "NO",
+        "default": null,
+        "ord": 6
+      },
+      {
+        "column": "created_at",
+        "type": "int",
+        "udt": "int unsigned",
+        "nullable": "NO",
+        "default": null,
+        "ord": 7
+      }
+    ],
+    "fks": [],
+    "indexes": [
+      {
+        "name": "jobs_queue_index",
+        "def": "INDEX jobs_queue_index (queue)"
+      }
+    ]
+  },
+  {
+    "table": "migrations",
+    "rows": 15,
+    "pk": [
+      "id"
+    ],
+    "columns": [
+      {
+        "column": "id",
+        "type": "int",
+        "udt": "int unsigned",
+        "nullable": "NO",
+        "default": null,
+        "ord": 1
+      },
+      {
+        "column": "migration",
+        "type": "varchar",
+        "udt": "varchar(255)",
+        "nullable": "NO",
+        "default": null,
+        "ord": 2
+      },
+      {
+        "column": "batch",
+        "type": "int",
+        "udt": "int",
+        "nullable": "NO",
+        "default": null,
+        "ord": 3
+      }
+    ],
+    "fks": [],
+    "indexes": []
+  },
+  {
+    "table": "password_reset_tokens",
+    "rows": 0,
+    "pk": [
+      "email"
+    ],
+    "columns": [
+      {
+        "column": "email",
+        "type": "varchar",
+        "udt": "varchar(255)",
+        "nullable": "NO",
+        "default": null,
+        "ord": 1
+      },
+      {
+        "column": "token",
+        "type": "varchar",
+        "udt": "varchar(255)",
+        "nullable": "NO",
+        "default": null,
+        "ord": 2
+      },
+      {
+        "column": "created_at",
+        "type": "timestamp",
+        "udt": "timestamp",
+        "nullable": "YES",
+        "default": null,
+        "ord": 3
+      }
+    ],
+    "fks": [],
+    "indexes": []
+  },
+  {
+    "table": "sessions",
+    "rows": 9,
+    "pk": [
+      "id"
+    ],
+    "columns": [
+      {
+        "column": "id",
+        "type": "varchar",
+        "udt": "varchar(255)",
+        "nullable": "NO",
+        "default": null,
+        "ord": 1
+      },
+      {
+        "column": "user_id",
+        "type": "bigint",
+        "udt": "bigint unsigned",
+        "nullable": "YES",
+        "default": null,
+        "ord": 2
+      },
+      {
+        "column": "ip_address",
+        "type": "varchar",
+        "udt": "varchar(45)",
+        "nullable": "YES",
+        "default": null,
+        "ord": 3
+      },
+      {
+        "column": "user_agent",
+        "type": "text",
+        "udt": "text",
+        "nullable": "YES",
+        "default": null,
+        "ord": 4
+      },
+      {
+        "column": "payload",
+        "type": "longtext",
+        "udt": "longtext",
+        "nullable": "NO",
+        "default": null,
+        "ord": 5
+      },
+      {
+        "column": "last_activity",
+        "type": "int",
+        "udt": "int",
+        "nullable": "NO",
+        "default": null,
+        "ord": 6
+      }
+    ],
+    "fks": [],
+    "indexes": [
+      {
+        "name": "sessions_last_activity_index",
+        "def": "INDEX sessions_last_activity_index (last_activity)"
+      },
+      {
+        "name": "sessions_user_id_index",
+        "def": "INDEX sessions_user_id_index (user_id)"
+      }
+    ]
+  },
+  {
+    "table": "users",
+    "rows": 1,
+    "pk": [
+      "id"
+    ],
+    "columns": [
+      {
+        "column": "id",
+        "type": "bigint",
+        "udt": "bigint unsigned",
+        "nullable": "NO",
+        "default": null,
+        "ord": 1
+      },
+      {
+        "column": "name",
+        "type": "varchar",
+        "udt": "varchar(255)",
+        "nullable": "NO",
+        "default": null,
+        "ord": 2
+      },
+      {
+        "column": "email",
+        "type": "varchar",
+        "udt": "varchar(255)",
+        "nullable": "NO",
+        "default": null,
+        "ord": 3
+      },
+      {
+        "column": "email_verified_at",
+        "type": "timestamp",
+        "udt": "timestamp",
+        "nullable": "YES",
+        "default": null,
+        "ord": 4
+      },
+      {
+        "column": "password",
+        "type": "varchar",
+        "udt": "varchar(255)",
+        "nullable": "NO",
+        "default": null,
+        "ord": 5
+      },
+      {
+        "column": "two_factor_secret",
+        "type": "text",
+        "udt": "text",
+        "nullable": "YES",
+        "default": null,
+        "ord": 6
+      },
+      {
+        "column": "two_factor_recovery_codes",
+        "type": "text",
+        "udt": "text",
+        "nullable": "YES",
+        "default": null,
+        "ord": 7
+      },
+      {
+        "column": "two_factor_confirmed_at",
+        "type": "timestamp",
+        "udt": "timestamp",
+        "nullable": "YES",
+        "default": null,
+        "ord": 8
+      },
+      {
+        "column": "remember_token",
+        "type": "varchar",
+        "udt": "varchar(100)",
+        "nullable": "YES",
+        "default": null,
+        "ord": 9
+      },
+      {
+        "column": "created_at",
+        "type": "timestamp",
+        "udt": "timestamp",
+        "nullable": "YES",
+        "default": null,
+        "ord": 10
+      },
+      {
+        "column": "updated_at",
+        "type": "timestamp",
+        "udt": "timestamp",
+        "nullable": "YES",
+        "default": null,
+        "ord": 11
+      }
+    ],
+    "fks": [],
+    "indexes": [
+      {
+        "name": "users_email_unique",
+        "def": "UNIQUE INDEX users_email_unique (email)"
+      }
+    ]
+  }
+]
