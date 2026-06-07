@@ -3,12 +3,13 @@ package erd
 import "strings"
 
 var dbtypeNames = map[string]string{
-	"mysql":     "MySQL",
-	"postgres":  "PostgreSQL",
-	"sqlite":    "SQLite",
-	"snowflake": "Snowflake",
-	"bigquery":  "BigQuery",
-	"duckdb":    "DuckDB",
+	"mysql":      "MySQL",
+	"postgresql": "PostgreSQL", // adapter Type() is "postgresql"
+	"postgres":   "PostgreSQL",
+	"sqlite":     "SQLite",
+	"snowflake":  "Snowflake",
+	"bigquery":   "BigQuery",
+	"duckdb":     "DuckDB",
 }
 
 // BuildMetaStub produces a Meta scaffold an agent can fill in.

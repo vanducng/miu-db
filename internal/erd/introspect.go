@@ -17,7 +17,7 @@ func Introspect(ctx context.Context, db *sql.DB, dbtype, schema string, tables [
 	switch dbtype {
 	case "mysql":
 		return introspectMySQL(ctx, db, schema, tables)
-	case "postgres":
+	case "postgresql", "postgres": // adapter Type() is "postgresql"
 		return introspectPostgres(ctx, db, schema, tables)
 	default:
 		return nil, fmt.Errorf("%w: %s (introspection planned)", ErrUnsupported, dbtype)
