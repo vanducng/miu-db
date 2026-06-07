@@ -12,11 +12,13 @@ import (
 
 // GenerateOpts controls what Generate writes to disk.
 type GenerateOpts struct {
-	OutputDir string   // destination directory; created if absent
-	Formats   []string // "json", "dbml"; "html" rejected until phase 3
-	Meta      *Meta    // optional agentic polish layer
-	Schema    string   // database/schema name; "" = auto-detect
-	Tables    []string // restrict to these table names; nil = all
+	OutputDir    string   // destination directory; created if absent
+	Formats      []string // any of "html", "json", "dbml"
+	Meta         *Meta    // optional agentic polish layer
+	Schema       string   // database/schema name; "" = auto-detect
+	Tables       []string // restrict to these table names; nil = all
+	CDN          bool     // link renderer libs from CDN instead of inlining
+	DefaultTitle string   // diagram title when meta.title is empty
 }
 
 // Result carries the output paths and stats from a Generate call.
@@ -30,12 +32,6 @@ type Result struct {
 // opts.OutputDir. Caller supplies a ready *sql.DB so this stays decoupled from
 // the adapter/core layers.
 func Generate(ctx context.Context, db *sql.DB, dbtype string, opts GenerateOpts) (Result, error) {
-	for _, f := range opts.Formats {
-		if f == "html" {
-			return Result{}, fmt.Errorf("html rendering lands in phase 3; use --format json,dbml")
-		}
-	}
-
 	tables, err := Introspect(ctx, db, dbtype, opts.Schema, opts.Tables)
 	if err != nil {
 		return Result{}, err
@@ -91,6 +87,18 @@ func Generate(ctx context.Context, db *sql.DB, dbtype string, opts GenerateOpts)
 			return Result{}, fmt.Errorf("write schema.dbml: %w", err)
 		}
 		written = append(written, dbmlPath)
+	}
+
+	if wantFormat("html") {
+		html, err := RenderHTML(payload, RenderOpts{CDN: opts.CDN, DefaultTitle: opts.DefaultTitle})
+		if err != nil {
+			return Result{}, fmt.Errorf("render html: %w", err)
+		}
+		htmlPath := filepath.Join(opts.OutputDir, "index.html")
+		if err := os.WriteFile(htmlPath, []byte(html), 0o644); err != nil {
+			return Result{}, fmt.Errorf("write index.html: %w", err)
+		}
+		written = append(written, htmlPath)
 	}
 
 	return Result{

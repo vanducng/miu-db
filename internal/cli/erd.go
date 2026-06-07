@@ -20,10 +20,11 @@ func erdCommand(opts *options) *cobra.Command {
 
 func erdGenerateCommand(opts *options) *cobra.Command {
 	var connName, schemaName, tablesFlag, metaPath, outputDir, formatFlag, title string
+	var cdn bool
 
 	cmd := &cobra.Command{
 		Use:   "generate",
-		Short: "Introspect a connection and write schema.json + schema.dbml",
+		Short: "Generate an interactive offline ERD (HTML) + schema.json/DBML from a connection",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if connName == "" {
 				return &CLIError{Code: "erd.missing_connection", Message: "--connection is required", Exit: 2}
@@ -70,12 +71,18 @@ func erdGenerateCommand(opts *options) *cobra.Command {
 				outputDir = fmt.Sprintf(".diagrams/%s-erd", connName)
 			}
 
+			defaultTitle := schemaName
+			if defaultTitle == "" {
+				defaultTitle = connName
+			}
 			result, err := services.GenerateERD(cmd.Context(), connName, erd.GenerateOpts{
-				OutputDir: outputDir,
-				Formats:   formats,
-				Meta:      metaPtr,
-				Schema:    schemaName,
-				Tables:    tables,
+				OutputDir:    outputDir,
+				Formats:      formats,
+				Meta:         metaPtr,
+				Schema:       schemaName,
+				Tables:       tables,
+				CDN:          cdn,
+				DefaultTitle: defaultTitle,
 			}, opts.captureMeta())
 			if err != nil {
 				if strings.Contains(err.Error(), "not found") {
@@ -118,7 +125,8 @@ func erdGenerateCommand(opts *options) *cobra.Command {
 	cmd.Flags().StringVar(&tablesFlag, "tables", "", "Comma-separated table names to include; default all")
 	cmd.Flags().StringVar(&metaPath, "meta", "", "Path to meta.json for agentic polish layer")
 	cmd.Flags().StringVar(&outputDir, "out-dir", "", "Output directory (default .diagrams/<connection>-erd/)")
-	cmd.Flags().StringVar(&formatFlag, "format", "json,dbml", "Comma-separated output formats: json,dbml (html arrives in phase 3)")
+	cmd.Flags().StringVar(&formatFlag, "format", "html", "Comma-separated output formats: html,json,dbml")
+	cmd.Flags().BoolVar(&cdn, "cdn", false, "Link renderer libs from CDN instead of inlining (smaller file, needs network)")
 	cmd.Flags().StringVar(&title, "title", "", "Diagram title (overrides meta.title when meta.title is empty)")
 
 	return cmd
