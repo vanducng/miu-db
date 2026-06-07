@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.4.0](https://github.com/vanducng/miu-db/compare/v0.3.0...v0.4.0) (2026-06-07)
+
+
+### Features
+
+* **erd:** add 'Focus selected (hide others)' view mode ([#24](https://github.com/vanducng/miu-db/issues/24)) ([1e82624](https://github.com/vanducng/miu-db/commit/1e82624c555de721e62663e94cb8bd258232c92d))
+
 ## [0.3.0](https://github.com/vanducng/miu-db/compare/v0.2.18...v0.3.0) (2026-06-07)
 
 
