@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"os/signal"
+	"path/filepath"
 	"strings"
 	"syscall"
 
@@ -19,6 +20,7 @@ func erdCommand(opts *options) *cobra.Command {
 
 	cmd.AddCommand(erdGenerateCommand(opts))
 	cmd.AddCommand(erdServeCommand(opts))
+	cmd.AddCommand(erdMetaCommand(opts))
 	return cmd
 }
 
@@ -274,6 +276,98 @@ func erdServeCommand(opts *options) *cobra.Command {
 	cmd.Flags().BoolVar(&noOpen, "no-open", false, "Do not open the browser automatically")
 	cmd.Flags().BoolVar(&cdn, "cdn", false, "Link renderer libs from CDN instead of inlining")
 	cmd.Flags().StringVar(&title, "title", "", "Diagram title (overrides meta.title when meta.title is empty)")
+
+	return cmd
+}
+
+func erdMetaCommand(opts *options) *cobra.Command {
+	var connName, schemaName, outputDir string
+	var stub, force bool
+
+	cmd := &cobra.Command{
+		Use:   "meta",
+		Short: "Scaffold a meta.json stub for agentic ERD polish",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			if !stub {
+				return &CLIError{Code: "erd.meta_missing_mode", Message: "only --stub is supported", Exit: 2}
+			}
+			if connName == "" {
+				return &CLIError{Code: "erd.missing_connection", Message: "--connection is required", Exit: 2}
+			}
+
+			services, err := loadServices(opts)
+			if err != nil {
+				return err
+			}
+
+			conn, ok, err := services.FindConnection(connName)
+			if err != nil {
+				return err
+			}
+			if !ok {
+				return &CLIError{Code: "connection.not_found", Message: "connection not found", Exit: 2}
+			}
+
+			if outputDir == "" {
+				outputDir = fmt.Sprintf(".diagrams/%s-erd", connName)
+			}
+
+			outPath := filepath.Join(outputDir, "meta.json")
+			if !force {
+				if _, statErr := os.Stat(outPath); statErr == nil {
+					return &CLIError{
+						Code:    "erd.meta_exists",
+						Message: fmt.Sprintf("meta.json already exists at %s; use --force to overwrite", outPath),
+						Exit:    2,
+					}
+				}
+			}
+
+			tables, err := services.IntrospectERD(cmd.Context(), connName, erd.GenerateOpts{
+				Schema: schemaName,
+			}, opts.captureMeta())
+			if err != nil {
+				if strings.Contains(err.Error(), "not found") {
+					return &CLIError{Code: "connection.not_found", Message: "connection not found", Exit: 2}
+				}
+				if strings.Contains(err.Error(), "unsupported database type") {
+					return &CLIError{Code: "erd.unsupported_db", Message: err.Error(), Exit: 2}
+				}
+				return err
+			}
+
+			meta := erd.BuildMetaStub(tables, conn.DBType)
+
+			if err := os.MkdirAll(outputDir, 0o755); err != nil {
+				return fmt.Errorf("erd meta: create output dir: %w", err)
+			}
+
+			b, err := json.MarshalIndent(meta, "", "  ")
+			if err != nil {
+				return fmt.Errorf("erd meta: marshal: %w", err)
+			}
+
+			if err := os.WriteFile(outPath, b, 0o644); err != nil {
+				return fmt.Errorf("erd meta: write %s: %w", outPath, err)
+			}
+
+			return writeJSON(cmd.OutOrStdout(), Envelope{
+				OK:        true,
+				Kind:      "erd.meta",
+				Command:   "erd meta",
+				Summary:   map[string]any{"connection": connName, "output": outPath},
+				Data:      map[string]any{"output": outPath},
+				Artifacts: []any{outPath},
+				Warnings:  []any{},
+			})
+		},
+	}
+
+	cmd.Flags().BoolVar(&stub, "stub", false, "Generate a meta.json stub (required)")
+	cmd.Flags().StringVar(&connName, "connection", "", "Connection name (required)")
+	cmd.Flags().StringVar(&schemaName, "schema", "", "Database/schema name; defaults to the connection's default schema")
+	cmd.Flags().StringVar(&outputDir, "out-dir", "", "Output directory (default .diagrams/<connection>-erd/)")
+	cmd.Flags().BoolVar(&force, "force", false, "Overwrite an existing meta.json")
 
 	return cmd
 }
