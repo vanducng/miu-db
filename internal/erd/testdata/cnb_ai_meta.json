@@ -1,0 +1,37 @@
+{
+  "title": "cnb-ai — Database Schema (cnb_ai)",
+  "groups": {
+    "AI Agent Domain": {
+      "color": "#2563eb",
+      "tables": ["agent_templates", "agent_template_variables", "ai_agents", "ai_agent_variable_values"]
+    },
+    "Auth & Users": {
+      "color": "#16a34a",
+      "tables": ["users", "sessions", "password_reset_tokens"]
+    },
+    "Queue & Cache": {
+      "color": "#9333ea",
+      "tables": ["jobs", "job_batches", "failed_jobs", "cache", "cache_locks"]
+    },
+    "System": {
+      "color": "#6b7280",
+      "tables": ["migrations"]
+    }
+  },
+  "framework_tables": [
+    "migrations", "cache", "cache_locks", "jobs", "job_batches",
+    "failed_jobs", "sessions", "password_reset_tokens"
+  ],
+  "audit_columns": ["created_at", "updated_at", "deleted_at"],
+  "descriptions": {
+    "agent_templates": "Reusable RetellAi agent blueprint; maps to a physical Retell agent_id. Has a type and a description.",
+    "agent_template_variables": "A template's configurable fields. Self-referential parent_agent_template_variable_id enables conditional/nested variables (parent_option gates the child).",
+    "ai_agents": "A configured agent instance built from a template — phone_number, voice_id, agent_trigger, and pre/post call hooks (JSON).",
+    "ai_agent_variable_values": "Per-agent value for each template variable. Join of ai_agent x agent_template_variable (unique pair).",
+    "users": "Application users. Fortify auth + two-factor (secret, recovery codes, confirmed_at).",
+    "sessions": "Database-driver session store.",
+    "jobs": "Database-driver queue backlog (default queue connection).",
+    "job_batches": "Batched-job bookkeeping.",
+    "failed_jobs": "Dead-letter store for exhausted queue jobs."
+  }
+}
