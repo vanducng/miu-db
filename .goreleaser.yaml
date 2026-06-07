@@ -65,6 +65,8 @@ changelog:
 
 release:
   prerelease: auto
+  # release-please creates the GitHub release/tag first; keep its notes and just upload binaries.
+  mode: keep-existing
 
 brews:
   - name: miudb
