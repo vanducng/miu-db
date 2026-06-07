@@ -4,10 +4,13 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"os/signal"
 	"strings"
+	"syscall"
 
 	"github.com/spf13/cobra"
 
+	"github.com/vanducng/miu-db/internal/auth"
 	"github.com/vanducng/miu-db/internal/erd"
 )
 
@@ -15,6 +18,7 @@ func erdCommand(opts *options) *cobra.Command {
 	cmd := &cobra.Command{Use: "erd", Short: "Entity-relationship diagram tools"}
 
 	cmd.AddCommand(erdGenerateCommand(opts))
+	cmd.AddCommand(erdServeCommand(opts))
 	return cmd
 }
 
@@ -127,6 +131,148 @@ func erdGenerateCommand(opts *options) *cobra.Command {
 	cmd.Flags().StringVar(&outputDir, "out-dir", "", "Output directory (default .diagrams/<connection>-erd/)")
 	cmd.Flags().StringVar(&formatFlag, "format", "html", "Comma-separated output formats: html,json,dbml")
 	cmd.Flags().BoolVar(&cdn, "cdn", false, "Link renderer libs from CDN instead of inlining (smaller file, needs network)")
+	cmd.Flags().StringVar(&title, "title", "", "Diagram title (overrides meta.title when meta.title is empty)")
+
+	return cmd
+}
+
+func erdServeCommand(opts *options) *cobra.Command {
+	var connName, fromPath, schemaName, tablesFlag, metaPath, title string
+	var port int
+	var noOpen, cdn bool
+
+	cmd := &cobra.Command{
+		Use:   "serve",
+		Short: "Render an ERD and serve it on a local browser",
+		Long:  "Render an ERD and serve it on a loopback HTTP server, opening the browser automatically. Use --from to load an existing export directory or schema.json; use --connection for a live introspection.",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			if fromPath == "" && connName == "" {
+				return &CLIError{Code: "erd.missing_source", Message: "--connection or --from is required", Exit: 2}
+			}
+			if fromPath != "" && connName != "" {
+				return &CLIError{Code: "erd.ambiguous_source", Message: "--connection and --from are mutually exclusive", Exit: 2}
+			}
+
+			var payload erd.Payload
+
+			if fromPath != "" {
+				p, err := erd.LoadPayloadFromPath(fromPath)
+				if err != nil {
+					return &CLIError{Code: "erd.from_unreadable", Message: fmt.Sprintf("cannot load ERD from %q: %v", fromPath, err), Exit: 2}
+				}
+				payload = p
+			} else {
+				var tables []string
+				if tablesFlag != "" {
+					tables = splitCSV(tablesFlag)
+				}
+
+				var metaPtr *erd.Meta
+				if metaPath != "" {
+					b, err := os.ReadFile(metaPath)
+					if err != nil {
+						return &CLIError{Code: "erd.meta_unreadable", Message: fmt.Sprintf("cannot read meta file: %v", err), Exit: 2}
+					}
+					var m erd.Meta
+					if err := json.Unmarshal(b, &m); err != nil {
+						return &CLIError{Code: "erd.meta_invalid", Message: fmt.Sprintf("invalid meta JSON: %v", err), Exit: 2}
+					}
+					metaPtr = &m
+				}
+
+				if title != "" {
+					if metaPtr == nil {
+						metaPtr = &erd.Meta{}
+					}
+					if metaPtr.Title == "" {
+						metaPtr.Title = title
+					}
+				}
+
+				services, err := loadServices(opts)
+				if err != nil {
+					return err
+				}
+
+				introspected, err := services.IntrospectERD(cmd.Context(), connName, erd.GenerateOpts{
+					Schema: schemaName,
+					Tables: tables,
+					Meta:   metaPtr,
+				}, opts.captureMeta())
+				if err != nil {
+					if strings.Contains(err.Error(), "not found") {
+						return &CLIError{Code: "connection.not_found", Message: "connection not found", Exit: 2}
+					}
+					if strings.Contains(err.Error(), "unsupported database type") {
+						return &CLIError{Code: "erd.unsupported_db", Message: err.Error(), Exit: 2}
+					}
+					return err
+				}
+
+				meta := erd.Meta{}
+				if metaPtr != nil {
+					meta = *metaPtr
+				}
+				payload = erd.Payload{Schema: introspected, Meta: meta}
+			}
+
+			defaultTitle := schemaName
+			if defaultTitle == "" {
+				defaultTitle = connName
+			}
+			if fromPath != "" && defaultTitle == "" {
+				defaultTitle = fromPath
+			}
+
+			html, err := erd.RenderHTML(payload, erd.RenderOpts{CDN: cdn, DefaultTitle: defaultTitle})
+			if err != nil {
+				return fmt.Errorf("erd serve: render: %w", err)
+			}
+
+			ctx, stop := signal.NotifyContext(cmd.Context(), syscall.SIGINT, syscall.SIGTERM)
+			defer stop()
+
+			suppressBrowser := noOpen || isMCPOrServeContext(cmd)
+
+			return erd.Serve(ctx, html, erd.ServeOpts{
+				Port: port,
+				OnReady: func(url string) {
+					fmt.Fprintf(cmd.ErrOrStderr(), "Listening at %s (press Ctrl-C to stop)\n", url)
+
+					_ = writeJSON(cmd.OutOrStdout(), Envelope{
+						OK:      true,
+						Kind:    "erd.serve",
+						Command: "erd serve",
+						Summary: map[string]any{
+							"url":        url,
+							"connection": connName,
+							"from":       fromPath,
+							"tables":     len(payload.Schema),
+						},
+						Data: map[string]any{
+							"url":    url,
+							"tables": len(payload.Schema),
+						},
+						Artifacts: []any{},
+						Warnings:  []any{},
+					})
+
+					if !suppressBrowser {
+						auth.Open(url) //nolint:errcheck
+					}
+				},
+			})
+		},
+	}
+
+	cmd.Flags().StringVar(&connName, "connection", "", "Connection name (live introspect)")
+	cmd.Flags().StringVar(&fromPath, "from", "", "Load from an existing export directory or schema.json")
+	cmd.Flags().StringVar(&schemaName, "schema", "", "Database/schema name; defaults to the connection's default schema")
+	cmd.Flags().StringVar(&tablesFlag, "tables", "", "Comma-separated table names to include; default all")
+	cmd.Flags().StringVar(&metaPath, "meta", "", "Path to meta.json for agentic polish layer")
+	cmd.Flags().IntVar(&port, "port", 0, "Port to listen on (0 = auto-pick)")
+	cmd.Flags().BoolVar(&noOpen, "no-open", false, "Do not open the browser automatically")
+	cmd.Flags().BoolVar(&cdn, "cdn", false, "Link renderer libs from CDN instead of inlining")
 	cmd.Flags().StringVar(&title, "title", "", "Diagram title (overrides meta.title when meta.title is empty)")
 
 	return cmd

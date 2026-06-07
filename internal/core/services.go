@@ -235,6 +235,39 @@ func (s *Services) GenerateERD(ctx context.Context, name string, opts erd.Genera
 	return result, genErr
 }
 
+// IntrospectERD opens the named connection, introspects its schema, and returns
+// the normalised []Table without writing any files. Mirrors GenerateERD's lifecycle.
+func (s *Services) IntrospectERD(ctx context.Context, name string, opts erd.GenerateOpts, meta activity.CaptureMeta) ([]erd.Table, error) {
+	conn, ok, err := s.FindConnection(name)
+	if err != nil {
+		return nil, err
+	}
+	if !ok {
+		return nil, fmt.Errorf("connection %q not found", name)
+	}
+	ctx, cancel := s.withTimeout(ctx)
+	defer cancel()
+	provider, ok := s.registry().Get(conn.DBType)
+	if !ok {
+		return nil, adapter.MissingProvider(conn.DBType)
+	}
+
+	start := time.Now()
+	session, err := provider.Open(ctx, conn)
+	if err != nil {
+		s.emitERDEvent(conn, meta, start, err)
+		return nil, err
+	}
+	defer session.Close()
+
+	tables, introspectErr := erd.Introspect(ctx, session.DB, conn.DBType, opts.Schema, opts.Tables)
+	if introspectErr == nil {
+		erd.Normalize(tables)
+	}
+	s.emitERDEvent(conn, meta, start, introspectErr)
+	return tables, introspectErr
+}
+
 func (s *Services) emitERDEvent(conn config.Connection, meta activity.CaptureMeta, start time.Time, runErr error) {
 	if s.Logger == nil || meta.SessionID == "" {
 		return
