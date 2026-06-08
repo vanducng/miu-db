@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.9.0](https://github.com/vanducng/miu-db/compare/v0.8.1...v0.9.0) (2026-06-08)
+
+
+### Features
+
+* **erd:** default ERD output to .work/visuals when present ([#46](https://github.com/vanducng/miu-db/issues/46)) ([55d7f53](https://github.com/vanducng/miu-db/commit/55d7f53897c84dd4f49c1b5660916d4b7c103d96))
+
 ## [0.8.1](https://github.com/vanducng/miu-db/compare/v0.8.0...v0.8.1) (2026-06-08)
 
 
