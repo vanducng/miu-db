@@ -1,5 +1,6 @@
 .DS_Store
 .miu-db/
+**/__pycache__/
 site/
 *.db
 coverage.out
@@ -15,3 +16,6 @@ docs/dist/
 # Engineering journals — local-only, live in plans/journals (not team docs)
 plans/journals/
 docs/journals/
+
+.coverage
+miu_db/_version.py
