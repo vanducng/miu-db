@@ -204,9 +204,19 @@ func (s *Store) Connections() []Connection {
 	return out
 }
 
+// connMatches resolves a selector that is either a bare name ("web") or a
+// group-qualified "group/name" (groups may themselves be slash-paths). Bare
+// names match across all groups; the qualified form disambiguates duplicates.
+func connMatches(conn Connection, spec string) bool {
+	if i := strings.LastIndex(spec, "/"); i >= 0 {
+		return conn.Group == spec[:i] && conn.Name == spec[i+1:]
+	}
+	return conn.Name == spec
+}
+
 func (s *Store) Find(name string) (Connection, bool) {
 	for _, conn := range s.root.Connections {
-		if conn.Name == name {
+		if connMatches(conn, name) {
 			resolved, err := s.Resolve(conn)
 			if err == nil {
 				conn = resolved
@@ -219,7 +229,7 @@ func (s *Store) Find(name string) (Connection, bool) {
 
 func (s *Store) FindResolved(name string) (Connection, bool, error) {
 	for _, conn := range s.root.Connections {
-		if conn.Name == name {
+		if connMatches(conn, name) {
 			resolved, err := s.Resolve(conn)
 			if err != nil {
 				return conn, true, err
@@ -242,8 +252,14 @@ func (s *Store) Add(conn Connection, opts AddOptions) (Connection, error) {
 	if strings.TrimSpace(conn.DBType) == "" {
 		return conn, fmt.Errorf("connection db_type is required")
 	}
-	if _, ok := s.FindRaw(conn.Name); ok {
-		return conn, fmt.Errorf("connection %q already exists", conn.Name)
+	for _, ex := range s.root.Connections { // unique on (group, name); same name allowed across groups
+		if ex.Name == conn.Name && ex.Group == conn.Group {
+			ref := conn.Name
+			if conn.Group != "" {
+				ref = conn.Group + "/" + conn.Name
+			}
+			return conn, fmt.Errorf("connection %q already exists", ref)
+		}
 	}
 	sanitized, err := s.persistSecrets(conn, opts)
 	if err != nil {
