@@ -1,7 +1,6 @@
 package config
 
 import (
-	"encoding/json"
 	"fmt"
 	"strings"
 )
@@ -12,7 +11,7 @@ type Root struct {
 }
 
 type Connection struct {
-	Group         string            `json:"group,omitempty"` // company/org folder; first for human review (legacy key: folder_path)
+	Group         string            `json:"group,omitempty"` // company/org folder; first field for easy human review
 	Name          string            `json:"name"`
 	DBType        string            `json:"db_type"`
 	Source        string            `json:"source,omitempty"`
@@ -23,23 +22,6 @@ type Connection struct {
 	Tunnel        *Tunnel           `json:"tunnel,omitempty"`
 	Secrets       []SecretRef       `json:"secrets,omitempty"`
 	LogSQL        *bool             `json:"log_sql,omitempty"`
-}
-
-// UnmarshalJSON reads the legacy "folder_path" key into Group for backward
-// compatibility; re-saving emits "group".
-func (c *Connection) UnmarshalJSON(data []byte) error {
-	type connectionAlias Connection
-	aux := struct {
-		*connectionAlias
-		LegacyFolderPath string `json:"folder_path,omitempty"`
-	}{connectionAlias: (*connectionAlias)(c)}
-	if err := json.Unmarshal(data, &aux); err != nil {
-		return err
-	}
-	if c.Group == "" {
-		c.Group = aux.LegacyFolderPath
-	}
-	return nil
 }
 
 type Endpoint struct {
