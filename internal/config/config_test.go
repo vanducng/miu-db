@@ -49,3 +49,28 @@ func TestRedactedConnectionExposesGroup(t *testing.T) {
 		t.Fatal("redacted output must not include folder_path")
 	}
 }
+
+func TestConnMatches(t *testing.T) {
+	webA := Connection{Name: "web", Group: "annhien"}
+	webB := Connection{Name: "web", Group: "cnb"}
+	bare := Connection{Name: "api"}
+	cases := []struct {
+		conn Connection
+		spec string
+		want bool
+	}{
+		{webA, "web", true},          // bare name matches across groups
+		{webA, "annhien/web", true},  // exact group/name
+		{webA, "cnb/web", false},     // wrong group
+		{webB, "cnb/web", true},      // same name, different group
+		{bare, "api", true},          // groupless by bare name
+		{webA, "annhien/api", false}, // wrong name
+		{webA, "team/sub/web", false},
+		{Connection{Name: "web", Group: "team/sub"}, "team/sub/web", true}, // nested group path
+	}
+	for _, c := range cases {
+		if got := connMatches(c.conn, c.spec); got != c.want {
+			t.Errorf("connMatches(%+v, %q) = %v, want %v", c.conn, c.spec, got, c.want)
+		}
+	}
+}

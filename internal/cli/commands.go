@@ -163,7 +163,8 @@ func describeCommand(opts *options) *cobra.Command {
 
 func connectionsCommand(opts *options) *cobra.Command {
 	cmd := &cobra.Command{Use: "connections", Short: "Manage connections"}
-	cmd.AddCommand(&cobra.Command{
+	var listBasic bool
+	listCmd := &cobra.Command{
 		Use:   "list",
 		Short: "List saved connections",
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -174,12 +175,22 @@ func connectionsCommand(opts *options) *cobra.Command {
 			items := []any{}
 			byType := map[string]int{}
 			for _, conn := range services.Connections() {
-				items = append(items, config.RedactedConnection(conn))
+				if listBasic {
+					ref := conn.Name
+					if conn.Group != "" {
+						ref = conn.Group + "/" + conn.Name
+					}
+					items = append(items, map[string]any{"ref": ref, "name": conn.Name, "group": conn.Group, "db_type": conn.DBType, "host": conn.Endpoint.Host})
+				} else {
+					items = append(items, config.RedactedConnection(conn))
+				}
 				byType[conn.DBType]++
 			}
 			return writeSuccess(cmd.OutOrStdout(), "connections list", "connection.list", map[string]any{"connections": items}, map[string]any{"count": len(items), "by_type": byType, "store": services.Store.Info()})
 		},
-	})
+	}
+	listCmd.Flags().BoolVar(&listBasic, "basic", false, "Show only ref/name/group/db_type/host for quick scanning")
+	cmd.AddCommand(listCmd)
 	cmd.AddCommand(connectionAddCommand(opts))
 	cmd.AddCommand(connectionImportCommand(opts))
 	cmd.AddCommand(&cobra.Command{
