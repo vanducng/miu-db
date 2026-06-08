@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.8.1](https://github.com/vanducng/miu-db/compare/v0.8.0...v0.8.1) (2026-06-08)
+
+
+### Bug Fixes
+
+* **tests:** apply moved-testdata paths to contract + MCP tests ([#43](https://github.com/vanducng/miu-db/issues/43)) ([a1cef97](https://github.com/vanducng/miu-db/commit/a1cef97daaf5fe44c2dba46f2b77fca4e08215a0))
+
 ## [0.8.0](https://github.com/vanducng/miu-db/compare/v0.7.0...v0.8.0) (2026-06-08)
 
 
