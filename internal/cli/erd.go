@@ -15,6 +15,13 @@ import (
 	"github.com/vanducng/miu-db/internal/erd"
 )
 
+// interactiveTerminal reports whether stderr is a real TTY, so `erd serve` only
+// auto-opens a browser for an interactive user — not when piped, under MCP, or in CI.
+func interactiveTerminal() bool {
+	fi, err := os.Stderr.Stat()
+	return err == nil && fi.Mode()&os.ModeCharDevice != 0
+}
+
 func erdCommand(opts *options) *cobra.Command {
 	cmd := &cobra.Command{Use: "erd", Short: "Entity-relationship diagram tools"}
 
@@ -245,7 +252,7 @@ func erdServeCommand(opts *options) *cobra.Command {
 			ctx, stop := signal.NotifyContext(cmd.Context(), syscall.SIGINT, syscall.SIGTERM)
 			defer stop()
 
-			suppressBrowser := noOpen || isMCPOrServeContext(cmd)
+			suppressBrowser := noOpen || !interactiveTerminal()
 
 			return erd.Serve(ctx, html, erd.ServeOpts{
 				Port: port,
@@ -255,8 +262,10 @@ func erdServeCommand(opts *options) *cobra.Command {
 						src = fromPath
 					}
 					browserNote := "opening browser…"
-					if suppressBrowser {
+					if noOpen {
 						browserNote = "browser auto-open disabled (--no-open)"
+					} else if suppressBrowser {
+						browserNote = "non-interactive shell — browser auto-open skipped"
 					}
 					fmt.Fprintf(cmd.ErrOrStderr(), "\n  ERD ready · %s · %d tables\n  → %s\n  %s · press Ctrl-C to stop\n\n", src, len(payload.Schema), url, browserNote)
 
