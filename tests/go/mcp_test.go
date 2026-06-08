@@ -215,7 +215,7 @@ func writeMCPTestConfig(t *testing.T) string {
 
 func readToolsContract(t *testing.T) []string {
 	t.Helper()
-	data, err := os.ReadFile(filepath.Join("..", "..", "testdata", "contracts", "mcp-tools.json"))
+	data, err := os.ReadFile(filepath.Join("..", "testdata", "contracts", "mcp-tools.json"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -228,7 +228,7 @@ func readToolsContract(t *testing.T) []string {
 
 func assertQueryContract(t *testing.T, got map[string]any) {
 	t.Helper()
-	data, err := os.ReadFile(filepath.Join("..", "..", "testdata", "contracts", "mcp-query-result.json"))
+	data, err := os.ReadFile(filepath.Join("..", "testdata", "contracts", "mcp-query-result.json"))
 	if err != nil {
 		t.Fatal(err)
 	}

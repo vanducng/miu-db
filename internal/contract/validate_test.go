@@ -14,11 +14,11 @@ func TestContractExamplesValidate(t *testing.T) {
 		schema  string
 		example string
 	}{
-		{"schemas/query-result-v1.schema.json", "testdata/contracts/query-result.json"},
-		{"schemas/script-result-v1.schema.json", "testdata/contracts/script-result.json"},
-		{"schemas/connection-smoke-v1.schema.json", "testdata/contracts/connection-smoke.json"},
-		{"schemas/protocol-jsonrpc-v1.schema.json", "testdata/contracts/protocol-jsonrpc-event.json"},
-		{"schemas/protocol-ndjson-v1.schema.json", "testdata/contracts/protocol-ndjson-event.json"},
+		{"tests/testdata/schemas/query-result-v1.schema.json", "tests/testdata/contracts/query-result.json"},
+		{"tests/testdata/schemas/script-result-v1.schema.json", "tests/testdata/contracts/script-result.json"},
+		{"tests/testdata/schemas/connection-smoke-v1.schema.json", "tests/testdata/contracts/connection-smoke.json"},
+		{"tests/testdata/schemas/protocol-jsonrpc-v1.schema.json", "tests/testdata/contracts/protocol-jsonrpc-event.json"},
+		{"tests/testdata/schemas/protocol-ndjson-v1.schema.json", "tests/testdata/contracts/protocol-ndjson-event.json"},
 	}
 	root := repoRoot(t)
 	for _, tc := range cases {
