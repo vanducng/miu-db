@@ -12,11 +12,11 @@ type Root struct {
 }
 
 type Connection struct {
+	Group         string            `json:"group,omitempty"` // company/org folder; first for human review (legacy key: folder_path)
 	Name          string            `json:"name"`
 	DBType        string            `json:"db_type"`
 	Source        string            `json:"source,omitempty"`
 	ConnectionURL string            `json:"connection_url,omitempty"`
-	Group         string            `json:"group,omitempty"`
 	ExtraOptions  map[string]string `json:"extra_options,omitempty"`
 	Options       map[string]any    `json:"options,omitempty"`
 	Endpoint      Endpoint          `json:"endpoint"`
