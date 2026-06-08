@@ -1,0 +1,30 @@
+{
+  "title": "Shop — Database Schema",
+  "database_type": "MySQL",
+  "groups": {
+    "Catalog": {
+      "color": "#2563eb",
+      "tables": ["products", "categories"]
+    },
+    "Orders": {
+      "color": "#16a34a",
+      "tables": ["orders", "order_items"]
+    },
+    "Accounts": {
+      "color": "#9333ea",
+      "tables": ["users"]
+    }
+  },
+  "framework_tables": [
+    "migrations", "cache", "cache_locks", "jobs", "job_batches",
+    "failed_jobs", "sessions", "password_reset_tokens"
+  ],
+  "audit_columns": ["created_at", "updated_at", "deleted_at"],
+  "descriptions": {
+    "users": "Registered customer accounts",
+    "categories": "Product category hierarchy with optional parent for nested trees",
+    "products": "Catalogue items belonging to a category",
+    "orders": "Customer purchase orders with status tracking",
+    "order_items": "Line items linking an order to a product with quantity and price"
+  }
+}

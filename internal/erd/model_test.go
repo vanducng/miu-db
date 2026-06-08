@@ -8,7 +8,7 @@ import (
 // The fixture must survive a decode->encode->decode cycle without field loss.
 func TestSchemaJSONRoundTrip(t *testing.T) {
 	var schema []Table
-	if err := json.Unmarshal(mustRead(t, "testdata/cnb_ai_schema.json"), &schema); err != nil {
+	if err := json.Unmarshal(mustRead(t, "testdata/sample_schema.json"), &schema); err != nil {
 		t.Fatalf("unmarshal: %v", err)
 	}
 	if len(schema) != 13 {
@@ -22,19 +22,32 @@ func TestSchemaJSONRoundTrip(t *testing.T) {
 	if err := json.Unmarshal(b, &again); err != nil {
 		t.Fatalf("re-unmarshal: %v", err)
 	}
-	// spot-check a table with FKs + indexes survived
-	var atv *Table
+	// spot-check order_items (junction: has 2 FKs + 2 indexes) survived round-trip
+	var oi *Table
 	for i := range again {
-		if again[i].Name == "agent_template_variables" {
-			atv = &again[i]
+		if again[i].Name == "order_items" {
+			oi = &again[i]
 		}
 	}
-	if atv == nil {
-		t.Fatal("agent_template_variables missing after round-trip")
+	if oi == nil {
+		t.Fatal("order_items missing after round-trip")
 	}
-	if len(atv.PK) == 0 || len(atv.Columns) == 0 || len(atv.FKs) == 0 || len(atv.Indexes) == 0 {
+	if len(oi.PK) == 0 || len(oi.Columns) == 0 || len(oi.FKs) == 0 || len(oi.Indexes) == 0 {
 		t.Fatalf("lost fields: pk=%d cols=%d fks=%d idx=%d",
-			len(atv.PK), len(atv.Columns), len(atv.FKs), len(atv.Indexes))
+			len(oi.PK), len(oi.Columns), len(oi.FKs), len(oi.Indexes))
+	}
+	// spot-check categories (self-referential FK: parent_id -> categories.id)
+	var cats *Table
+	for i := range again {
+		if again[i].Name == "categories" {
+			cats = &again[i]
+		}
+	}
+	if cats == nil {
+		t.Fatal("categories missing after round-trip")
+	}
+	if len(cats.FKs) == 0 || cats.FKs[0].RefTable != "categories" {
+		t.Fatalf("categories self-ref FK missing or wrong: %+v", cats.FKs)
 	}
 }
 

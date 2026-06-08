@@ -10,11 +10,11 @@ import (
 func loadFixture(t *testing.T) ([]Table, Meta) {
 	t.Helper()
 	var schema []Table
-	if err := json.Unmarshal(mustRead(t, "testdata/cnb_ai_schema.json"), &schema); err != nil {
+	if err := json.Unmarshal(mustRead(t, "testdata/sample_schema.json"), &schema); err != nil {
 		t.Fatalf("schema: %v", err)
 	}
 	var meta Meta
-	if err := json.Unmarshal(mustRead(t, "testdata/cnb_ai_meta.json"), &meta); err != nil {
+	if err := json.Unmarshal(mustRead(t, "testdata/sample_meta.json"), &meta); err != nil {
 		t.Fatalf("meta: %v", err)
 	}
 	return schema, meta
@@ -33,7 +33,7 @@ func mustRead(t *testing.T, p string) []byte {
 func TestEmitDBMLGoldenParity(t *testing.T) {
 	schema, meta := loadFixture(t)
 	got := EmitDBML(schema, meta)
-	want := string(mustRead(t, "testdata/cnb_ai_expected.dbml"))
+	want := string(mustRead(t, "testdata/sample_expected.dbml"))
 	if got != want {
 		t.Fatalf("DBML mismatch with golden.\n--- got ---\n%s\n--- want ---\n%s", got, want)
 	}

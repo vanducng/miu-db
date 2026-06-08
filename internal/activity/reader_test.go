@@ -31,8 +31,8 @@ func TestQueryFilters(t *testing.T) {
 	root := t.TempDir()
 
 	writeFixture(t, root, "2026-06-05", "sess_a", []Event{
-		{EventID: "e1", SessionID: "sess_a", Ts: "2026-06-05T10:00:00Z", Op: OpQuery, Connection: "cnb", Group: "tw"},
-		{EventID: "e2", SessionID: "sess_a", Ts: "2026-06-05T11:00:00Z", Op: OpExec, Connection: "cnb", Group: "tw",
+		{EventID: "e1", SessionID: "sess_a", Ts: "2026-06-05T10:00:00Z", Op: OpQuery, Connection: "demo-conn", Group: "demo-group"},
+		{EventID: "e2", SessionID: "sess_a", Ts: "2026-06-05T11:00:00Z", Op: OpExec, Connection: "demo-conn", Group: "demo-group",
 			Error: &EventError{Class: "sql", Message: "syntax error"}},
 	})
 	writeFixture(t, root, "2026-06-05", "sess_b", []Event{
@@ -54,7 +54,7 @@ func TestQueryFilters(t *testing.T) {
 	})
 
 	t.Run("filter by connection bare", func(t *testing.T) {
-		evts, err := Query(root, Filter{Connection: "cnb"})
+		evts, err := Query(root, Filter{Connection: "demo-conn"})
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -64,7 +64,7 @@ func TestQueryFilters(t *testing.T) {
 	})
 
 	t.Run("filter by connection group/connection", func(t *testing.T) {
-		evts, err := Query(root, Filter{Connection: "tw/cnb"})
+		evts, err := Query(root, Filter{Connection: "demo-group/demo-conn"})
 		if err != nil {
 			t.Fatal(err)
 		}

@@ -1,0 +1,926 @@
+[
+  {
+    "table": "cache",
+    "rows": 0,
+    "pk": [
+      "key"
+    ],
+    "columns": [
+      {
+        "column": "key",
+        "type": "varchar",
+        "udt": "varchar(255)",
+        "nullable": "NO",
+        "default": null,
+        "ord": 1
+      },
+      {
+        "column": "value",
+        "type": "text",
+        "udt": "text",
+        "nullable": "NO",
+        "default": null,
+        "ord": 2
+      },
+      {
+        "column": "expiration",
+        "type": "int",
+        "udt": "int",
+        "nullable": "NO",
+        "default": null,
+        "ord": 3
+      }
+    ],
+    "fks": [],
+    "indexes": [
+      {
+        "name": "cache_expiration_index",
+        "def": "INDEX cache_expiration_index (expiration)"
+      }
+    ]
+  },
+  {
+    "table": "cache_locks",
+    "rows": 0,
+    "pk": [
+      "key"
+    ],
+    "columns": [
+      {
+        "column": "key",
+        "type": "varchar",
+        "udt": "varchar(255)",
+        "nullable": "NO",
+        "default": null,
+        "ord": 1
+      },
+      {
+        "column": "owner",
+        "type": "varchar",
+        "udt": "varchar(255)",
+        "nullable": "NO",
+        "default": null,
+        "ord": 2
+      },
+      {
+        "column": "expiration",
+        "type": "int",
+        "udt": "int",
+        "nullable": "NO",
+        "default": null,
+        "ord": 3
+      }
+    ],
+    "fks": [],
+    "indexes": [
+      {
+        "name": "cache_locks_expiration_index",
+        "def": "INDEX cache_locks_expiration_index (expiration)"
+      }
+    ]
+  },
+  {
+    "table": "categories",
+    "rows": 50,
+    "pk": [
+      "id"
+    ],
+    "columns": [
+      {
+        "column": "id",
+        "type": "bigint",
+        "udt": "bigint unsigned",
+        "nullable": "NO",
+        "default": null,
+        "ord": 1
+      },
+      {
+        "column": "parent_id",
+        "type": "bigint",
+        "udt": "bigint unsigned",
+        "nullable": "YES",
+        "default": null,
+        "ord": 2
+      },
+      {
+        "column": "name",
+        "type": "varchar",
+        "udt": "varchar(255)",
+        "nullable": "NO",
+        "default": null,
+        "ord": 3
+      },
+      {
+        "column": "slug",
+        "type": "varchar",
+        "udt": "varchar(255)",
+        "nullable": "NO",
+        "default": null,
+        "ord": 4
+      },
+      {
+        "column": "description",
+        "type": "text",
+        "udt": "text",
+        "nullable": "YES",
+        "default": null,
+        "ord": 5
+      },
+      {
+        "column": "created_at",
+        "type": "timestamp",
+        "udt": "timestamp",
+        "nullable": "YES",
+        "default": null,
+        "ord": 6
+      },
+      {
+        "column": "updated_at",
+        "type": "timestamp",
+        "udt": "timestamp",
+        "nullable": "YES",
+        "default": null,
+        "ord": 7
+      },
+      {
+        "column": "deleted_at",
+        "type": "timestamp",
+        "udt": "timestamp",
+        "nullable": "YES",
+        "default": null,
+        "ord": 8
+      }
+    ],
+    "fks": [
+      {
+        "column": "parent_id",
+        "ref_table": "categories",
+        "ref_column": "id",
+        "on_delete": "CASCADE",
+        "constraint": "categories_parent_id_foreign"
+      }
+    ],
+    "indexes": [
+      {
+        "name": "categories_parent_id_index",
+        "def": "INDEX categories_parent_id_index (parent_id)"
+      },
+      {
+        "name": "categories_slug_unique",
+        "def": "UNIQUE INDEX categories_slug_unique (slug)"
+      }
+    ]
+  },
+  {
+    "table": "failed_jobs",
+    "rows": 0,
+    "pk": [
+      "id"
+    ],
+    "columns": [
+      {
+        "column": "id",
+        "type": "bigint",
+        "udt": "bigint unsigned",
+        "nullable": "NO",
+        "default": null,
+        "ord": 1
+      },
+      {
+        "column": "uuid",
+        "type": "varchar",
+        "udt": "varchar(255)",
+        "nullable": "NO",
+        "default": null,
+        "ord": 2
+      },
+      {
+        "column": "connection",
+        "type": "text",
+        "udt": "text",
+        "nullable": "NO",
+        "default": null,
+        "ord": 3
+      },
+      {
+        "column": "queue",
+        "type": "text",
+        "udt": "text",
+        "nullable": "NO",
+        "default": null,
+        "ord": 4
+      },
+      {
+        "column": "payload",
+        "type": "text",
+        "udt": "text",
+        "nullable": "NO",
+        "default": null,
+        "ord": 5
+      },
+      {
+        "column": "exception",
+        "type": "text",
+        "udt": "text",
+        "nullable": "NO",
+        "default": null,
+        "ord": 6
+      },
+      {
+        "column": "failed_at",
+        "type": "timestamp",
+        "udt": "timestamp",
+        "nullable": "NO",
+        "default": "CURRENT_TIMESTAMP",
+        "ord": 7
+      }
+    ],
+    "fks": [],
+    "indexes": [
+      {
+        "name": "failed_jobs_uuid_unique",
+        "def": "UNIQUE INDEX failed_jobs_uuid_unique (uuid)"
+      }
+    ]
+  },
+  {
+    "table": "job_batches",
+    "rows": 0,
+    "pk": [
+      "id"
+    ],
+    "columns": [
+      {
+        "column": "id",
+        "type": "varchar",
+        "udt": "varchar(255)",
+        "nullable": "NO",
+        "default": null,
+        "ord": 1
+      },
+      {
+        "column": "name",
+        "type": "varchar",
+        "udt": "varchar(255)",
+        "nullable": "NO",
+        "default": null,
+        "ord": 2
+      },
+      {
+        "column": "total_jobs",
+        "type": "int",
+        "udt": "int",
+        "nullable": "NO",
+        "default": null,
+        "ord": 3
+      },
+      {
+        "column": "pending_jobs",
+        "type": "int",
+        "udt": "int",
+        "nullable": "NO",
+        "default": null,
+        "ord": 4
+      },
+      {
+        "column": "failed_jobs",
+        "type": "int",
+        "udt": "int",
+        "nullable": "NO",
+        "default": null,
+        "ord": 5
+      },
+      {
+        "column": "failed_job_ids",
+        "type": "text",
+        "udt": "text",
+        "nullable": "NO",
+        "default": null,
+        "ord": 6
+      },
+      {
+        "column": "options",
+        "type": "text",
+        "udt": "text",
+        "nullable": "YES",
+        "default": null,
+        "ord": 7
+      },
+      {
+        "column": "cancelled_at",
+        "type": "int",
+        "udt": "int",
+        "nullable": "YES",
+        "default": null,
+        "ord": 8
+      },
+      {
+        "column": "created_at",
+        "type": "int",
+        "udt": "int",
+        "nullable": "NO",
+        "default": null,
+        "ord": 9
+      },
+      {
+        "column": "finished_at",
+        "type": "int",
+        "udt": "int",
+        "nullable": "YES",
+        "default": null,
+        "ord": 10
+      }
+    ],
+    "fks": [],
+    "indexes": []
+  },
+  {
+    "table": "jobs",
+    "rows": 0,
+    "pk": [
+      "id"
+    ],
+    "columns": [
+      {
+        "column": "id",
+        "type": "bigint",
+        "udt": "bigint unsigned",
+        "nullable": "NO",
+        "default": null,
+        "ord": 1
+      },
+      {
+        "column": "queue",
+        "type": "varchar",
+        "udt": "varchar(255)",
+        "nullable": "NO",
+        "default": null,
+        "ord": 2
+      },
+      {
+        "column": "payload",
+        "type": "text",
+        "udt": "text",
+        "nullable": "NO",
+        "default": null,
+        "ord": 3
+      },
+      {
+        "column": "attempts",
+        "type": "int",
+        "udt": "int",
+        "nullable": "NO",
+        "default": null,
+        "ord": 4
+      },
+      {
+        "column": "reserved_at",
+        "type": "int",
+        "udt": "int",
+        "nullable": "YES",
+        "default": null,
+        "ord": 5
+      },
+      {
+        "column": "available_at",
+        "type": "int",
+        "udt": "int",
+        "nullable": "NO",
+        "default": null,
+        "ord": 6
+      },
+      {
+        "column": "created_at",
+        "type": "int",
+        "udt": "int",
+        "nullable": "NO",
+        "default": null,
+        "ord": 7
+      }
+    ],
+    "fks": [],
+    "indexes": [
+      {
+        "name": "jobs_queue_index",
+        "def": "INDEX jobs_queue_index (queue)"
+      }
+    ]
+  },
+  {
+    "table": "migrations",
+    "rows": 10,
+    "pk": [
+      "id"
+    ],
+    "columns": [
+      {
+        "column": "id",
+        "type": "int",
+        "udt": "int",
+        "nullable": "NO",
+        "default": null,
+        "ord": 1
+      },
+      {
+        "column": "migration",
+        "type": "varchar",
+        "udt": "varchar(255)",
+        "nullable": "NO",
+        "default": null,
+        "ord": 2
+      },
+      {
+        "column": "batch",
+        "type": "int",
+        "udt": "int",
+        "nullable": "NO",
+        "default": null,
+        "ord": 3
+      }
+    ],
+    "fks": [],
+    "indexes": []
+  },
+  {
+    "table": "order_items",
+    "rows": 500,
+    "pk": [
+      "id"
+    ],
+    "columns": [
+      {
+        "column": "id",
+        "type": "bigint",
+        "udt": "bigint unsigned",
+        "nullable": "NO",
+        "default": null,
+        "ord": 1
+      },
+      {
+        "column": "order_id",
+        "type": "bigint",
+        "udt": "bigint unsigned",
+        "nullable": "NO",
+        "default": null,
+        "ord": 2
+      },
+      {
+        "column": "product_id",
+        "type": "bigint",
+        "udt": "bigint unsigned",
+        "nullable": "NO",
+        "default": null,
+        "ord": 3
+      },
+      {
+        "column": "quantity",
+        "type": "int",
+        "udt": "int",
+        "nullable": "NO",
+        "default": "1",
+        "ord": 4
+      },
+      {
+        "column": "unit_price",
+        "type": "decimal",
+        "udt": "decimal(10,2)",
+        "nullable": "NO",
+        "default": null,
+        "ord": 5
+      },
+      {
+        "column": "created_at",
+        "type": "timestamp",
+        "udt": "timestamp",
+        "nullable": "YES",
+        "default": null,
+        "ord": 6
+      },
+      {
+        "column": "updated_at",
+        "type": "timestamp",
+        "udt": "timestamp",
+        "nullable": "YES",
+        "default": null,
+        "ord": 7
+      }
+    ],
+    "fks": [
+      {
+        "column": "order_id",
+        "ref_table": "orders",
+        "ref_column": "id",
+        "on_delete": "CASCADE",
+        "constraint": "order_items_order_id_foreign"
+      },
+      {
+        "column": "product_id",
+        "ref_table": "products",
+        "ref_column": "id",
+        "on_delete": "NO ACTION",
+        "constraint": "order_items_product_id_foreign"
+      }
+    ],
+    "indexes": [
+      {
+        "name": "order_items_order_id_index",
+        "def": "INDEX order_items_order_id_index (order_id)"
+      },
+      {
+        "name": "order_items_product_id_index",
+        "def": "INDEX order_items_product_id_index (product_id)"
+      }
+    ]
+  },
+  {
+    "table": "orders",
+    "rows": 200,
+    "pk": [
+      "id"
+    ],
+    "columns": [
+      {
+        "column": "id",
+        "type": "bigint",
+        "udt": "bigint unsigned",
+        "nullable": "NO",
+        "default": null,
+        "ord": 1
+      },
+      {
+        "column": "user_id",
+        "type": "bigint",
+        "udt": "bigint unsigned",
+        "nullable": "NO",
+        "default": null,
+        "ord": 2
+      },
+      {
+        "column": "status",
+        "type": "varchar",
+        "udt": "varchar(255)",
+        "nullable": "NO",
+        "default": "pending",
+        "ord": 3
+      },
+      {
+        "column": "total",
+        "type": "decimal",
+        "udt": "decimal(10,2)",
+        "nullable": "NO",
+        "default": null,
+        "ord": 4
+      },
+      {
+        "column": "notes",
+        "type": "text",
+        "udt": "text",
+        "nullable": "YES",
+        "default": null,
+        "ord": 5
+      },
+      {
+        "column": "created_at",
+        "type": "timestamp",
+        "udt": "timestamp",
+        "nullable": "YES",
+        "default": null,
+        "ord": 6
+      },
+      {
+        "column": "updated_at",
+        "type": "timestamp",
+        "udt": "timestamp",
+        "nullable": "YES",
+        "default": null,
+        "ord": 7
+      },
+      {
+        "column": "deleted_at",
+        "type": "timestamp",
+        "udt": "timestamp",
+        "nullable": "YES",
+        "default": null,
+        "ord": 8
+      }
+    ],
+    "fks": [
+      {
+        "column": "user_id",
+        "ref_table": "users",
+        "ref_column": "id",
+        "on_delete": "CASCADE",
+        "constraint": "orders_user_id_foreign"
+      }
+    ],
+    "indexes": [
+      {
+        "name": "orders_status_index",
+        "def": "INDEX orders_status_index (status)"
+      },
+      {
+        "name": "orders_user_id_index",
+        "def": "INDEX orders_user_id_index (user_id)"
+      }
+    ]
+  },
+  {
+    "table": "password_reset_tokens",
+    "rows": 0,
+    "pk": [
+      "email"
+    ],
+    "columns": [
+      {
+        "column": "email",
+        "type": "varchar",
+        "udt": "varchar(255)",
+        "nullable": "NO",
+        "default": null,
+        "ord": 1
+      },
+      {
+        "column": "token",
+        "type": "varchar",
+        "udt": "varchar(255)",
+        "nullable": "NO",
+        "default": null,
+        "ord": 2
+      },
+      {
+        "column": "created_at",
+        "type": "timestamp",
+        "udt": "timestamp",
+        "nullable": "YES",
+        "default": null,
+        "ord": 3
+      }
+    ],
+    "fks": [],
+    "indexes": []
+  },
+  {
+    "table": "products",
+    "rows": 300,
+    "pk": [
+      "id"
+    ],
+    "columns": [
+      {
+        "column": "id",
+        "type": "bigint",
+        "udt": "bigint unsigned",
+        "nullable": "NO",
+        "default": null,
+        "ord": 1
+      },
+      {
+        "column": "category_id",
+        "type": "bigint",
+        "udt": "bigint unsigned",
+        "nullable": "NO",
+        "default": null,
+        "ord": 2
+      },
+      {
+        "column": "name",
+        "type": "varchar",
+        "udt": "varchar(255)",
+        "nullable": "NO",
+        "default": null,
+        "ord": 3
+      },
+      {
+        "column": "slug",
+        "type": "varchar",
+        "udt": "varchar(255)",
+        "nullable": "NO",
+        "default": null,
+        "ord": 4
+      },
+      {
+        "column": "price",
+        "type": "decimal",
+        "udt": "decimal(10,2)",
+        "nullable": "NO",
+        "default": null,
+        "ord": 5
+      },
+      {
+        "column": "stock",
+        "type": "int",
+        "udt": "int",
+        "nullable": "NO",
+        "default": "0",
+        "ord": 6
+      },
+      {
+        "column": "description",
+        "type": "text",
+        "udt": "text",
+        "nullable": "YES",
+        "default": null,
+        "ord": 7
+      },
+      {
+        "column": "meta",
+        "type": "json",
+        "udt": "json",
+        "nullable": "YES",
+        "default": null,
+        "ord": 8
+      },
+      {
+        "column": "created_at",
+        "type": "timestamp",
+        "udt": "timestamp",
+        "nullable": "YES",
+        "default": null,
+        "ord": 9
+      },
+      {
+        "column": "updated_at",
+        "type": "timestamp",
+        "udt": "timestamp",
+        "nullable": "YES",
+        "default": null,
+        "ord": 10
+      },
+      {
+        "column": "deleted_at",
+        "type": "timestamp",
+        "udt": "timestamp",
+        "nullable": "YES",
+        "default": null,
+        "ord": 11
+      }
+    ],
+    "fks": [
+      {
+        "column": "category_id",
+        "ref_table": "categories",
+        "ref_column": "id",
+        "on_delete": "CASCADE",
+        "constraint": "products_category_id_foreign"
+      }
+    ],
+    "indexes": [
+      {
+        "name": "products_category_id_index",
+        "def": "INDEX products_category_id_index (category_id)"
+      },
+      {
+        "name": "products_slug_unique",
+        "def": "UNIQUE INDEX products_slug_unique (slug)"
+      }
+    ]
+  },
+  {
+    "table": "sessions",
+    "rows": 5,
+    "pk": [
+      "id"
+    ],
+    "columns": [
+      {
+        "column": "id",
+        "type": "varchar",
+        "udt": "varchar(255)",
+        "nullable": "NO",
+        "default": null,
+        "ord": 1
+      },
+      {
+        "column": "user_id",
+        "type": "bigint",
+        "udt": "bigint unsigned",
+        "nullable": "YES",
+        "default": null,
+        "ord": 2
+      },
+      {
+        "column": "ip_address",
+        "type": "varchar",
+        "udt": "varchar(45)",
+        "nullable": "YES",
+        "default": null,
+        "ord": 3
+      },
+      {
+        "column": "user_agent",
+        "type": "text",
+        "udt": "text",
+        "nullable": "YES",
+        "default": null,
+        "ord": 4
+      },
+      {
+        "column": "payload",
+        "type": "text",
+        "udt": "text",
+        "nullable": "NO",
+        "default": null,
+        "ord": 5
+      },
+      {
+        "column": "last_activity",
+        "type": "int",
+        "udt": "int",
+        "nullable": "NO",
+        "default": null,
+        "ord": 6
+      }
+    ],
+    "fks": [],
+    "indexes": [
+      {
+        "name": "sessions_last_activity_index",
+        "def": "INDEX sessions_last_activity_index (last_activity)"
+      },
+      {
+        "name": "sessions_user_id_index",
+        "def": "INDEX sessions_user_id_index (user_id)"
+      }
+    ]
+  },
+  {
+    "table": "users",
+    "rows": 100,
+    "pk": [
+      "id"
+    ],
+    "columns": [
+      {
+        "column": "id",
+        "type": "bigint",
+        "udt": "bigint unsigned",
+        "nullable": "NO",
+        "default": null,
+        "ord": 1
+      },
+      {
+        "column": "name",
+        "type": "varchar",
+        "udt": "varchar(255)",
+        "nullable": "NO",
+        "default": null,
+        "ord": 2
+      },
+      {
+        "column": "email",
+        "type": "varchar",
+        "udt": "varchar(255)",
+        "nullable": "NO",
+        "default": null,
+        "ord": 3
+      },
+      {
+        "column": "password",
+        "type": "varchar",
+        "udt": "varchar(255)",
+        "nullable": "NO",
+        "default": null,
+        "ord": 4
+      },
+      {
+        "column": "remember_token",
+        "type": "varchar",
+        "udt": "varchar(100)",
+        "nullable": "YES",
+        "default": null,
+        "ord": 5
+      },
+      {
+        "column": "created_at",
+        "type": "timestamp",
+        "udt": "timestamp",
+        "nullable": "YES",
+        "default": null,
+        "ord": 6
+      },
+      {
+        "column": "updated_at",
+        "type": "timestamp",
+        "udt": "timestamp",
+        "nullable": "YES",
+        "default": null,
+        "ord": 7
+      },
+      {
+        "column": "deleted_at",
+        "type": "timestamp",
+        "udt": "timestamp",
+        "nullable": "YES",
+        "default": null,
+        "ord": 8
+      }
+    ],
+    "fks": [],
+    "indexes": [
+      {
+        "name": "users_email_unique",
+        "def": "UNIQUE INDEX users_email_unique (email)"
+      }
+    ]
+  }
+]
