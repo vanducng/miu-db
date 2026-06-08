@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.4.1](https://github.com/vanducng/miu-db/compare/v0.4.0...v0.4.1) (2026-06-08)
+
+
+### Bug Fixes
+
+* **erd:** clear error when MySQL connection has no default database; add short flags ([#26](https://github.com/vanducng/miu-db/issues/26)) ([4ee4463](https://github.com/vanducng/miu-db/commit/4ee446388490d017a55f56b2a6ea28417f74577e))
+
 ## [0.4.0](https://github.com/vanducng/miu-db/compare/v0.3.0...v0.4.0) (2026-06-07)
 
 
