@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.5.0](https://github.com/vanducng/miu-db/compare/v0.4.1...v0.5.0) (2026-06-08)
+
+
+### Features
+
+* **connections:** group/name resolution + 'connections list --basic' ([#28](https://github.com/vanducng/miu-db/issues/28)) ([b178653](https://github.com/vanducng/miu-db/commit/b1786530cf204d8f6787f1239acca1eb4d88a298))
+
 ## [0.4.1](https://github.com/vanducng/miu-db/compare/v0.4.0...v0.4.1) (2026-06-08)
 
 
