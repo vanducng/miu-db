@@ -250,7 +250,15 @@ func erdServeCommand(opts *options) *cobra.Command {
 			return erd.Serve(ctx, html, erd.ServeOpts{
 				Port: port,
 				OnReady: func(url string) {
-					fmt.Fprintf(cmd.ErrOrStderr(), "Listening at %s (press Ctrl-C to stop)\n", url)
+					src := connName
+					if src == "" {
+						src = fromPath
+					}
+					browserNote := "opening browser…"
+					if suppressBrowser {
+						browserNote = "browser auto-open disabled (--no-open)"
+					}
+					fmt.Fprintf(cmd.ErrOrStderr(), "\n  ERD ready · %s · %d tables\n  → %s\n  %s · press Ctrl-C to stop\n\n", src, len(payload.Schema), url, browserNote)
 
 					_ = writeJSON(cmd.OutOrStdout(), Envelope{
 						OK:      true,
