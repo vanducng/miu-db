@@ -3,14 +3,20 @@ package erd
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"strings"
 )
 
 func introspectMySQL(ctx context.Context, db *sql.DB, schema string, filter []string) ([]Table, error) {
 	if schema == "" {
-		if err := db.QueryRowContext(ctx, "SELECT DATABASE()").Scan(&schema); err != nil {
+		var current sql.NullString // DATABASE() is NULL when the connection selected no default db
+		if err := db.QueryRowContext(ctx, "SELECT DATABASE()").Scan(&current); err != nil {
 			return nil, err
 		}
+		if !current.Valid || current.String == "" {
+			return nil, errors.New("erd: connection has no default database; pass --schema <db> (see 'SHOW DATABASES')")
+		}
+		schema = current.String
 	}
 
 	filterSet := make(map[string]bool, len(filter))

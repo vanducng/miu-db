@@ -137,12 +137,12 @@ func erdGenerateCommand(opts *options) *cobra.Command {
 		},
 	}
 
-	cmd.Flags().StringVar(&connName, "connection", "", "Connection name (required)")
-	cmd.Flags().StringVar(&schemaName, "schema", "", "Database/schema name; defaults to the connection's default schema")
+	cmd.Flags().StringVarP(&connName, "connection", "c", "", "Connection name (required)")
+	cmd.Flags().StringVarP(&schemaName, "schema", "s", "", "Database/schema name; defaults to the connection's default schema")
 	cmd.Flags().StringVar(&tablesFlag, "tables", "", "Comma-separated table names to include; default all")
-	cmd.Flags().StringVar(&metaPath, "meta", "", "Path to meta.json for agentic polish layer")
+	cmd.Flags().StringVarP(&metaPath, "meta", "m", "", "Path to meta.json for agentic polish layer")
 	cmd.Flags().StringVar(&outputDir, "out-dir", "", "Output directory (default .diagrams/<connection>-erd/)")
-	cmd.Flags().StringVar(&formatFlag, "format", "html", "Comma-separated output formats: html,json,dbml")
+	cmd.Flags().StringVarP(&formatFlag, "format", "f", "html", "Comma-separated output formats: html,json,dbml")
 	cmd.Flags().BoolVar(&cdn, "cdn", false, "Link renderer libs from CDN instead of inlining (smaller file, needs network)")
 	cmd.Flags().StringVar(&title, "title", "", "Diagram title (overrides meta.title when meta.title is empty)")
 
@@ -278,12 +278,12 @@ func erdServeCommand(opts *options) *cobra.Command {
 		},
 	}
 
-	cmd.Flags().StringVar(&connName, "connection", "", "Connection name (live introspect)")
+	cmd.Flags().StringVarP(&connName, "connection", "c", "", "Connection name (live introspect)")
 	cmd.Flags().StringVar(&fromPath, "from", "", "Load from an existing export directory or schema.json")
-	cmd.Flags().StringVar(&schemaName, "schema", "", "Database/schema name; defaults to the connection's default schema")
+	cmd.Flags().StringVarP(&schemaName, "schema", "s", "", "Database/schema name; defaults to the connection's default schema")
 	cmd.Flags().StringVar(&tablesFlag, "tables", "", "Comma-separated table names to include; default all")
-	cmd.Flags().StringVar(&metaPath, "meta", "", "Path to meta.json for agentic polish layer")
-	cmd.Flags().IntVar(&port, "port", 0, "Port to listen on (0 = auto-pick)")
+	cmd.Flags().StringVarP(&metaPath, "meta", "m", "", "Path to meta.json for agentic polish layer")
+	cmd.Flags().IntVarP(&port, "port", "p", 0, "Port to listen on (0 = auto-pick)")
 	cmd.Flags().BoolVar(&noOpen, "no-open", false, "Do not open the browser automatically")
 	cmd.Flags().BoolVar(&cdn, "cdn", false, "Link renderer libs from CDN instead of inlining")
 	cmd.Flags().StringVar(&title, "title", "", "Diagram title (overrides meta.title when meta.title is empty)")
@@ -378,8 +378,8 @@ func erdMetaCommand(opts *options) *cobra.Command {
 	}
 
 	cmd.Flags().BoolVar(&stub, "stub", false, "Generate a meta.json stub (required)")
-	cmd.Flags().StringVar(&connName, "connection", "", "Connection name (required)")
-	cmd.Flags().StringVar(&schemaName, "schema", "", "Database/schema name; defaults to the connection's default schema")
+	cmd.Flags().StringVarP(&connName, "connection", "c", "", "Connection name (required)")
+	cmd.Flags().StringVarP(&schemaName, "schema", "s", "", "Database/schema name; defaults to the connection's default schema")
 	cmd.Flags().StringVar(&outputDir, "out-dir", "", "Output directory (default .diagrams/<connection>-erd/)")
 	cmd.Flags().BoolVar(&force, "force", false, "Overwrite an existing meta.json")
 
