@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"os/exec"
 	"os/signal"
 	"path/filepath"
 	"strings"
@@ -14,6 +15,22 @@ import (
 	"github.com/vanducng/miu-db/internal/auth"
 	"github.com/vanducng/miu-db/internal/erd"
 )
+
+// defaultErdBase resolves the scratch directory for ERD outputs.
+// Resolution order: $CK_VISUALS_PATH → <git-root>/.work/visuals (when .work exists) → .diagrams.
+func defaultErdBase() string {
+	if v := os.Getenv("CK_VISUALS_PATH"); v != "" {
+		return v
+	}
+	out, err := exec.Command("git", "rev-parse", "--show-toplevel").Output()
+	if err == nil {
+		gitRoot := strings.TrimSpace(string(out))
+		if _, statErr := os.Stat(filepath.Join(gitRoot, ".work")); statErr == nil {
+			return filepath.Join(gitRoot, ".work", "visuals")
+		}
+	}
+	return ".diagrams"
+}
 
 // interactiveTerminal reports whether stderr is a real TTY, so `erd serve` only
 // auto-opens a browser for an interactive user — not when piped, under MCP, or in CI.
@@ -81,7 +98,7 @@ func erdGenerateCommand(opts *options) *cobra.Command {
 			}
 
 			if outputDir == "" {
-				outputDir = fmt.Sprintf(".diagrams/%s-erd", connName)
+				outputDir = filepath.Join(defaultErdBase(), connName+"-erd")
 			}
 
 			defaultTitle := schemaName
@@ -148,7 +165,7 @@ func erdGenerateCommand(opts *options) *cobra.Command {
 	cmd.Flags().StringVarP(&schemaName, "schema", "s", "", "Database/schema name; defaults to the connection's default schema")
 	cmd.Flags().StringVar(&tablesFlag, "tables", "", "Comma-separated table names to include; default all")
 	cmd.Flags().StringVarP(&metaPath, "meta", "m", "", "Path to meta.json for agentic polish layer")
-	cmd.Flags().StringVar(&outputDir, "out-dir", "", "Output directory (default .diagrams/<connection>-erd/)")
+	cmd.Flags().StringVar(&outputDir, "out-dir", "", "Output directory (default: $CK_VISUALS_PATH/<conn>-erd, or <git-root>/.work/visuals/<conn>-erd, or .diagrams/<conn>-erd)")
 	cmd.Flags().StringVarP(&formatFlag, "format", "f", "html", "Comma-separated output formats: html,json,dbml")
 	cmd.Flags().BoolVar(&cdn, "cdn", false, "Link renderer libs from CDN instead of inlining (smaller file, needs network)")
 	cmd.Flags().StringVar(&title, "title", "", "Diagram title (overrides meta.title when meta.title is empty)")
@@ -337,7 +354,7 @@ func erdMetaCommand(opts *options) *cobra.Command {
 			}
 
 			if outputDir == "" {
-				outputDir = fmt.Sprintf(".diagrams/%s-erd", connName)
+				outputDir = filepath.Join(defaultErdBase(), connName+"-erd")
 			}
 
 			outPath := filepath.Join(outputDir, "meta.json")
@@ -397,7 +414,7 @@ func erdMetaCommand(opts *options) *cobra.Command {
 	cmd.Flags().BoolVar(&stub, "stub", false, "Generate a meta.json stub (required)")
 	cmd.Flags().StringVarP(&connName, "connection", "c", "", "Connection name (required)")
 	cmd.Flags().StringVarP(&schemaName, "schema", "s", "", "Database/schema name; defaults to the connection's default schema")
-	cmd.Flags().StringVar(&outputDir, "out-dir", "", "Output directory (default .diagrams/<connection>-erd/)")
+	cmd.Flags().StringVar(&outputDir, "out-dir", "", "Output directory (default: $CK_VISUALS_PATH/<conn>-erd, or <git-root>/.work/visuals/<conn>-erd, or .diagrams/<conn>-erd)")
 	cmd.Flags().BoolVar(&force, "force", false, "Overwrite an existing meta.json")
 
 	return cmd
