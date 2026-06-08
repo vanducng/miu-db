@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.8.0](https://github.com/vanducng/miu-db/compare/v0.7.0...v0.8.0) (2026-06-08)
+
+
+### Features
+
+* **output:** redact secrets from all command output (defense-in-depth) ([#38](https://github.com/vanducng/miu-db/issues/38)) ([c102e7a](https://github.com/vanducng/miu-db/commit/c102e7a8ff417228ba1fa598db50ada20834b4d1))
+
 ## [0.7.0](https://github.com/vanducng/miu-db/compare/v0.6.1...v0.7.0) (2026-06-08)
 
 
