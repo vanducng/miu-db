@@ -16,7 +16,10 @@ Rules:
 - stdout is data.
 - stderr is diagnostics, progress, and human hints.
 - JSON output uses compact objects by default.
-- Secrets are never serialized.
+- Output is secret-hardened: credential-named values, password-bearing URLs, and
+  `key=secret` assignments are redacted before stdout (`connections list` shows
+  `has_password: true`, never the value). Query-result *values* are not masked —
+  they are the user's data.
 - Query rows are arrays by default, with column metadata carrying names/types.
 - Bounded query output is the default; commands return `page.next_cursor` when
   more data can be fetched.

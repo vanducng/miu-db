@@ -73,17 +73,22 @@ miudb connections add \
 
 ```bash
 miudb connections list --output json
+miudb connections list --basic --output json   # scannable: ref/name/group/db_type/host
 miudb connections test local-app --output json
-miudb query run --connection local-app --sql 'select 1 as one' --output json
+miudb query run -c local-app --sql 'select 1 as one' --output json
 ```
+
+Connections are addressed by **`group/name`** (e.g. `team/prod-db`) when names
+repeat across groups; a bare `name` works when it is unique. The `ref` column
+from `--basic` is exactly what you pass to `--connection` (short flag `-c`).
 
 Use `--session key=value` (repeatable) to set temporary, per-call session context.
 Keys are provider-specific and rejected when unsupported; they do not persist
 across calls. For example, switch the Snowflake role for one query:
 
 ```bash
-miudb query run --connection cnb-snowflake \
-  --session role=DBT_ANALYTICS_ROLE \
+miudb query run -c snowflake-prod \
+  --session role=ANALYST_ROLE \
   --sql 'select current_role()' --output json
 ```
 
@@ -94,7 +99,7 @@ default; pass `--atomic` to wrap the script in a transaction (DML-only
 atomicity). Other datasources are rejected with a clear error.
 
 ```bash
-miudb query script --connection cnb-snowflake \
+miudb query script -c snowflake-prod \
   --session role=SECURITYADMIN \
   --sql "SHOW USERS LIKE 'alice'; SHOW ROLES LIKE 'analyst'" --output json
 ```
