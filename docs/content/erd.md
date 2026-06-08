@@ -10,12 +10,13 @@ intermediate representation, and optionally DBML.
 
 ### erd generate
 
-Introspect a connection, write outputs to `--out-dir` (default
-`.diagrams/<connection>-erd/`), and return an Envelope with `kind: erd.generate`.
+Introspect a connection, write outputs to `--out-dir` (default resolved as:
+`$CK_VISUALS_PATH/<conn>-erd` → `<git-root>/.work/visuals/<conn>-erd` when `.work` exists → `.diagrams/<conn>-erd`),
+and return an Envelope with `kind: erd.generate`.
 
 ```
 miudb erd generate --connection myconn --output json
-miudb erd generate --connection myconn --meta .diagrams/myconn-erd/meta.json
+miudb erd generate --connection myconn --meta .work/visuals/myconn-erd/meta.json
 miudb erd generate --connection myconn --format html,json,dbml --out-dir ./docs/erd/
 ```
 
@@ -32,7 +33,7 @@ Render the ERD and open it in a local browser. Accepts a live connection
 
 ```
 miudb erd serve --connection myconn
-miudb erd serve --from .diagrams/myconn-erd/
+miudb erd serve --from .work/visuals/myconn-erd/
 ```
 
 Flags: `--connection`, `--from`, `--schema`, `--tables`, `--meta`, `--port`,
