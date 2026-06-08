@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.6.0](https://github.com/vanducng/miu-db/compare/v0.5.0...v0.6.0) (2026-06-08)
+
+
+### Features
+
+* **erd:** legible default zoom + clearer 'erd serve' output ([#31](https://github.com/vanducng/miu-db/issues/31)) ([7460941](https://github.com/vanducng/miu-db/commit/746094162c816eaf41b9a5bf45e528d639bfe1c7))
+
 ## [0.5.0](https://github.com/vanducng/miu-db/compare/v0.4.1...v0.5.0) (2026-06-08)
 
 
