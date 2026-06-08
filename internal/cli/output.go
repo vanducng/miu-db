@@ -1,10 +1,12 @@
 package cli
 
 import (
+	"bytes"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
+	"regexp"
 	"time"
 
 	"github.com/vanducng/miu-db/internal/config"
@@ -59,6 +61,62 @@ func newRequestID() string {
 	return fmt.Sprintf("req_%d", time.Now().UnixNano())
 }
 
+// secretKey matches connection-credential field names. Flag fields such as
+// has_password carry bool values and are skipped (only string/number redacted).
+var secretKey = regexp.MustCompile(`(?i)(^|_)(passwd|password|passphrase|secret|token|private_key|secret_key|access_key|client_secret|api_?key|auth_token)$`)
+
+// scrubOutput hardens a dynamic envelope field against credential leakage:
+// credential-named values become "***" and password-bearing URLs/assignments are
+// redacted, regardless of which command produced the value. Query-result values
+// live in positional rows (unkeyed), so legitimate data is left untouched.
+func scrubOutput(v any) any {
+	if v == nil {
+		return nil
+	}
+	raw, err := json.Marshal(v)
+	if err != nil {
+		return v
+	}
+	dec := json.NewDecoder(bytes.NewReader(raw))
+	dec.UseNumber() // preserve integer precision across the round-trip
+	var generic any
+	if dec.Decode(&generic) != nil {
+		return v
+	}
+	return scrubWalk(generic)
+}
+
+func scrubWalk(v any) any {
+	switch x := v.(type) {
+	case map[string]any:
+		for k, val := range x {
+			if secretKey.MatchString(k) {
+				if s, ok := val.(string); ok {
+					if s != "" {
+						x[k] = "***"
+					}
+					continue
+				}
+				if _, ok := val.(json.Number); ok {
+					x[k] = "***"
+					continue
+				}
+			}
+			x[k] = scrubWalk(val)
+		}
+		return x
+	case []any:
+		for i := range x {
+			x[i] = scrubWalk(x[i])
+		}
+		return x
+	case string:
+		return config.RedactString(x)
+	default:
+		return v
+	}
+}
+
 func writeJSON(w io.Writer, env Envelope) error {
 	env.APIVersion = apiVersion
 	if env.RequestID == "" {
@@ -69,6 +127,22 @@ func writeJSON(w io.Writer, env Envelope) error {
 	}
 	if env.Warnings == nil {
 		env.Warnings = []any{}
+	}
+	if m, ok := scrubOutput(env.Summary).(map[string]any); ok {
+		env.Summary = m
+	}
+	env.Data = scrubOutput(env.Data)
+	if m, ok := scrubOutput(env.Page).(map[string]any); ok {
+		env.Page = m
+	}
+	if m, ok := scrubOutput(env.Stats).(map[string]any); ok {
+		env.Stats = m
+	}
+	if s, ok := scrubOutput(env.Artifacts).([]any); ok {
+		env.Artifacts = s
+	}
+	if s, ok := scrubOutput(env.Warnings).([]any); ok {
+		env.Warnings = s
 	}
 	enc := json.NewEncoder(w)
 	enc.SetEscapeHTML(false)
