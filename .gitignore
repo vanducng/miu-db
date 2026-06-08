@@ -17,5 +17,6 @@ docs/dist/
 plans/
 docs/journals/
 
+# Generated / local output — never commit
+.diagrams/
 .coverage
-miu_db/_version.py

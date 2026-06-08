@@ -20,7 +20,10 @@ miudb erd generate --connection myconn --format html,json,dbml --out-dir ./docs/
 ```
 
 Flags: `--connection`, `--schema`, `--tables`, `--meta`, `--out-dir`,
-`--format` (html,json,dbml), `--cdn`, `--title`.
+`--format` (html,json,dbml), `--cdn`, `--title`. Short forms (all `erd`
+commands): `-c`/`--connection`, `-s`/`--schema`, `-m`/`--meta`, `-f`/`--format`,
+`-p`/`--port`. A connection with no default database errors with a clear
+"pass --schema" hint.
 
 ### erd serve
 
