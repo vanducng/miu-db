@@ -3,7 +3,6 @@ package erd
 import (
 	"context"
 	"database/sql"
-	"encoding/json"
 	"os"
 	"testing"
 
@@ -32,6 +31,8 @@ func TestBuildIndexDef(t *testing.T) {
 
 // TestIntrospectMySQLIntegration requires a live MySQL instance.
 // Set MIUDB_TEST_MYSQL_DSN to run (e.g. "root:pass@tcp(127.0.0.1:3306)/").
+// Optionally set MIUDB_TEST_MYSQL_SCHEMA to target a specific schema name
+// (default: empty string, which lets introspectMySQL resolve via DATABASE()).
 func TestIntrospectMySQLIntegration(t *testing.T) {
 	dsn := os.Getenv("MIUDB_TEST_MYSQL_DSN")
 	if dsn == "" {
@@ -44,55 +45,47 @@ func TestIntrospectMySQLIntegration(t *testing.T) {
 	}
 	defer db.Close()
 
+	schema := os.Getenv("MIUDB_TEST_MYSQL_SCHEMA")
 	ctx := context.Background()
-	tables, err := Introspect(ctx, db, "mysql", "cnb_ai", nil)
+	tables, err := Introspect(ctx, db, "mysql", schema, nil)
 	if err != nil {
 		t.Fatalf("Introspect: %v", err)
 	}
 	Normalize(tables)
 
-	// Load the committed fixture for comparison.
-	fixtureBytes := mustRead(t, "testdata/cnb_ai_schema.json")
-	var fixture []Table
-	if err := json.Unmarshal(fixtureBytes, &fixture); err != nil {
-		t.Fatalf("unmarshal fixture: %v", err)
+	// Structural sanity: at least one table was returned.
+	if len(tables) < 1 {
+		t.Fatal("expected at least 1 table from introspection")
 	}
 
-	if len(tables) != len(fixture) {
-		t.Fatalf("table count: got %d, want %d", len(tables), len(fixture))
-	}
-
-	// Deep-compare agent_template_variables (has FKs + composite indexes).
-	checkTable(t, tables, "agent_template_variables", func(got Table) {
-		if len(got.FKs) < 2 {
-			t.Errorf("agent_template_variables: want >=2 FKs, got %d", len(got.FKs))
-		}
-		if len(got.Indexes) < 2 {
-			t.Errorf("agent_template_variables: want >=2 indexes, got %d", len(got.Indexes))
-		}
-		if len(got.PK) == 0 || got.PK[0] != "id" {
-			t.Errorf("agent_template_variables: want pk=[id], got %v", got.PK)
-		}
-	})
-
-	// Deep-compare agent_templates (referenced by FKs above).
-	checkTable(t, tables, "agent_templates", func(got Table) {
-		if len(got.Columns) == 0 {
-			t.Error("agent_templates: no columns returned")
-		}
-		if len(got.PK) == 0 {
-			t.Error("agent_templates: no PK returned")
-		}
-	})
-}
-
-func checkTable(t *testing.T, tables []Table, name string, check func(Table)) {
-	t.Helper()
+	// Every table must have at least one column.
 	for _, tbl := range tables {
-		if tbl.Name == name {
-			check(tbl)
-			return
+		if len(tbl.Columns) == 0 {
+			t.Errorf("table %q has no columns", tbl.Name)
 		}
 	}
-	t.Errorf("table %q not found in introspected schema", name)
+
+	// Every FK must carry non-empty Column, RefTable, RefColumn, and OnDelete.
+	for _, tbl := range tables {
+		for _, fk := range tbl.FKs {
+			if fk.Column == "" || fk.RefTable == "" || fk.RefColumn == "" {
+				t.Errorf("table %q: FK missing required fields: %+v", tbl.Name, fk)
+			}
+			if fk.OnDelete == "" {
+				t.Errorf("table %q FK %q: OnDelete is empty", tbl.Name, fk.Constraint)
+			}
+		}
+	}
+
+	// PK detection: at least one table must have a non-empty PK slice.
+	hasPK := false
+	for _, tbl := range tables {
+		if len(tbl.PK) > 0 {
+			hasPK = true
+			break
+		}
+	}
+	if !hasPK {
+		t.Error("no table had a PK detected — pk detection may be broken")
+	}
 }

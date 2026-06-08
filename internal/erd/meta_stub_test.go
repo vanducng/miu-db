@@ -19,8 +19,8 @@ func loadTestSchema(t *testing.T, path string) []Table {
 	return schema
 }
 
-func TestBuildMetaStub_CNBAISchema(t *testing.T) {
-	schema := loadTestSchema(t, "testdata/cnb_ai_schema.json")
+func TestBuildMetaStub_SampleSchema(t *testing.T) {
+	schema := loadTestSchema(t, "testdata/sample_schema.json")
 	meta := BuildMetaStub(schema, "mysql")
 
 	// DatabaseType mapping
@@ -40,7 +40,7 @@ func TestBuildMetaStub_CNBAISchema(t *testing.T) {
 		}
 	}
 
-	// FrameworkTables: exactly the Laravel tables present in this schema
+	// FrameworkTables: exactly the 8 Laravel tables present in this schema
 	wantFW := []string{
 		"cache", "cache_locks", "failed_jobs", "job_batches", "jobs",
 		"migrations", "password_reset_tokens", "sessions",
@@ -63,10 +63,8 @@ func TestBuildMetaStub_CNBAISchema(t *testing.T) {
 		t.Errorf("Groups len = %d, want 0", len(meta.Groups))
 	}
 
-	// Descriptions contains domain tables only
-	wantDomain := []string{
-		"agent_template_variables", "agent_templates", "ai_agent_variable_values", "ai_agents", "users",
-	}
+	// Descriptions contains the 5 domain tables only
+	wantDomain := []string{"categories", "order_items", "orders", "products", "users"}
 	if len(meta.Descriptions) != len(wantDomain) {
 		t.Errorf("Descriptions keys count = %d, want %d", len(meta.Descriptions), len(wantDomain))
 	}

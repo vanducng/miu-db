@@ -51,20 +51,20 @@ func TestRedactedConnectionExposesGroup(t *testing.T) {
 }
 
 func TestConnMatches(t *testing.T) {
-	webA := Connection{Name: "web", Group: "annhien"}
-	webB := Connection{Name: "web", Group: "cnb"}
+	webA := Connection{Name: "web", Group: "team-alpha"}
+	webB := Connection{Name: "web", Group: "team-beta"}
 	bare := Connection{Name: "api"}
 	cases := []struct {
 		conn Connection
 		spec string
 		want bool
 	}{
-		{webA, "web", true},          // bare name matches across groups
-		{webA, "annhien/web", true},  // exact group/name
-		{webA, "cnb/web", false},     // wrong group
-		{webB, "cnb/web", true},      // same name, different group
-		{bare, "api", true},          // groupless by bare name
-		{webA, "annhien/api", false}, // wrong name
+		{webA, "web", true},             // bare name matches across groups
+		{webA, "team-alpha/web", true},  // exact group/name
+		{webA, "team-beta/web", false},  // wrong group
+		{webB, "team-beta/web", true},   // same name, different group
+		{bare, "api", true},             // groupless by bare name
+		{webA, "team-alpha/api", false}, // wrong name
 		{webA, "team/sub/web", false},
 		{Connection{Name: "web", Group: "team/sub"}, "team/sub/web", true}, // nested group path
 	}

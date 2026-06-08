@@ -57,7 +57,7 @@ func TestActivityCLIEmitsValidJSONEnvelope(t *testing.T) {
 	actRoot := filepath.Join(root, "activity")
 
 	writeActivityFixture(t, actRoot, "2026-06-05", "s1", []map[string]any{
-		{"event_id": "e1", "session_id": "s1", "ts": "2026-06-05T10:00:00Z", "op": "query", "connection": "cnb"},
+		{"event_id": "e1", "session_id": "s1", "ts": "2026-06-05T10:00:00Z", "op": "query", "connection": "demo-conn"},
 	})
 
 	env := runActivity(t, actRoot)
