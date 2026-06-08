@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.6.1](https://github.com/vanducng/miu-db/compare/v0.6.0...v0.6.1) (2026-06-08)
+
+
+### Bug Fixes
+
+* **erd:** 'erd serve' now opens the browser for interactive use ([#33](https://github.com/vanducng/miu-db/issues/33)) ([a0deb0e](https://github.com/vanducng/miu-db/commit/a0deb0e5cfa5ce787fc2c84578d97c3cf6c0fd95))
+
 ## [0.6.0](https://github.com/vanducng/miu-db/compare/v0.5.0...v0.6.0) (2026-06-08)
 
 
