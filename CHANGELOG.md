@@ -1,5 +1,16 @@
 # Changelog
 
+## [0.7.0](https://github.com/vanducng/miu-db/compare/v0.6.1...v0.7.0) (2026-06-08)
+
+
+### ⚠ BREAKING CHANGES
+
+* **config:** connections.json must use the "group" key; the legacy "folder_path" key is no longer read on load.
+
+### Code Refactoring
+
+* **config:** drop legacy folder_path support ([#36](https://github.com/vanducng/miu-db/issues/36)) ([e9bafa7](https://github.com/vanducng/miu-db/commit/e9bafa712ab8f80f5ab577dae6864b079b93c92b))
+
 ## [0.6.1](https://github.com/vanducng/miu-db/compare/v0.6.0...v0.6.1) (2026-06-08)
 
 
