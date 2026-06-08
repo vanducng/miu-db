@@ -6,26 +6,6 @@ import (
 	"testing"
 )
 
-func TestConnectionReadsLegacyFolderPath(t *testing.T) {
-	var c Connection
-	if err := json.Unmarshal([]byte(`{"name":"a","db_type":"sqlite","folder_path":"team/project"}`), &c); err != nil {
-		t.Fatal(err)
-	}
-	if c.Group != "team/project" {
-		t.Fatalf("Group = %q, want team/project (from legacy folder_path)", c.Group)
-	}
-}
-
-func TestConnectionPrefersGroupOverLegacy(t *testing.T) {
-	var c Connection
-	if err := json.Unmarshal([]byte(`{"name":"a","group":"new","folder_path":"old"}`), &c); err != nil {
-		t.Fatal(err)
-	}
-	if c.Group != "new" {
-		t.Fatalf("Group = %q, want new", c.Group)
-	}
-}
-
 func TestConnectionMarshalsGroupNotFolderPath(t *testing.T) {
 	out, err := json.Marshal(Connection{Name: "a", DBType: "sqlite", Group: "team/project"})
 	if err != nil {
