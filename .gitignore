@@ -13,8 +13,8 @@ node_modules/
 docs/dist/
 .astro/
 
-# Engineering journals — local-only, live in plans/journals (not team docs)
-plans/journals/
+# Local working artifacts (plans, phases, reports, decisions, journals) — never commit
+plans/
 docs/journals/
 
 .coverage
