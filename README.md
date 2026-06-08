@@ -289,8 +289,8 @@ recorded; only the raw SQL text is omitted.
 `query run --session key=value` sets a temporary, per-call connection context
 (e.g. Snowflake role). This is unrelated to the activity log session\_id, which
 is a machine-generated identifier minted once per CLI invocation or MCP server
-start. The flags share a name for historical reasons; a rename is a separate
-decision tracked in `plans/260605-1736-session-activity-store/decisions.md`.
+start. The flags share a name for historical reasons; renaming one is a
+separate, deferred decision.
 
 ### Power-user SQL path (DuckDB)
 

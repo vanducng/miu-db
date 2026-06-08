@@ -60,9 +60,9 @@ Add a SQLite connection:
 
 ```bash
 miudb connections add \
-  --name agent-deck \
+  --name local-app \
   --db-type sqlite \
-  --path /Users/vanducng/.agent-deck/profiles/default/state.db \
+  --path /path/to/app.db \
   --output json
 ```
 
