@@ -17,9 +17,9 @@ import (
 )
 
 // defaultErdBase resolves the scratch directory for ERD outputs.
-// Resolution order: $CK_VISUALS_PATH → <git-root>/.work/visuals (when .work exists) → .diagrams.
+// Resolution order: $VD_VISUALS_PATH → <git-root>/.work/visuals (when .work exists) → .diagrams.
 func defaultErdBase() string {
-	if v := os.Getenv("CK_VISUALS_PATH"); v != "" {
+	if v := os.Getenv("VD_VISUALS_PATH"); v != "" {
 		return v
 	}
 	out, err := exec.Command("git", "rev-parse", "--show-toplevel").Output()
@@ -165,7 +165,7 @@ func erdGenerateCommand(opts *options) *cobra.Command {
 	cmd.Flags().StringVarP(&schemaName, "schema", "s", "", "Database/schema name; defaults to the connection's default schema")
 	cmd.Flags().StringVar(&tablesFlag, "tables", "", "Comma-separated table names to include; default all")
 	cmd.Flags().StringVarP(&metaPath, "meta", "m", "", "Path to meta.json for agentic polish layer")
-	cmd.Flags().StringVar(&outputDir, "out-dir", "", "Output directory (default: $CK_VISUALS_PATH/<conn>-erd, or <git-root>/.work/visuals/<conn>-erd, or .diagrams/<conn>-erd)")
+	cmd.Flags().StringVar(&outputDir, "out-dir", "", "Output directory (default: $VD_VISUALS_PATH/<conn>-erd, or <git-root>/.work/visuals/<conn>-erd, or .diagrams/<conn>-erd)")
 	cmd.Flags().StringVarP(&formatFlag, "format", "f", "html", "Comma-separated output formats: html,json,dbml")
 	cmd.Flags().BoolVar(&cdn, "cdn", false, "Link renderer libs from CDN instead of inlining (smaller file, needs network)")
 	cmd.Flags().StringVar(&title, "title", "", "Diagram title (overrides meta.title when meta.title is empty)")
@@ -414,7 +414,7 @@ func erdMetaCommand(opts *options) *cobra.Command {
 	cmd.Flags().BoolVar(&stub, "stub", false, "Generate a meta.json stub (required)")
 	cmd.Flags().StringVarP(&connName, "connection", "c", "", "Connection name (required)")
 	cmd.Flags().StringVarP(&schemaName, "schema", "s", "", "Database/schema name; defaults to the connection's default schema")
-	cmd.Flags().StringVar(&outputDir, "out-dir", "", "Output directory (default: $CK_VISUALS_PATH/<conn>-erd, or <git-root>/.work/visuals/<conn>-erd, or .diagrams/<conn>-erd)")
+	cmd.Flags().StringVar(&outputDir, "out-dir", "", "Output directory (default: $VD_VISUALS_PATH/<conn>-erd, or <git-root>/.work/visuals/<conn>-erd, or .diagrams/<conn>-erd)")
 	cmd.Flags().BoolVar(&force, "force", false, "Overwrite an existing meta.json")
 
 	return cmd

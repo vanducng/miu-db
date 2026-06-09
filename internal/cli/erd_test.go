@@ -16,7 +16,7 @@ func runCmd(dir, name string, args ...string) error {
 func TestDefaultErdBase(t *testing.T) {
 	t.Run("env var wins", func(t *testing.T) {
 		dir := t.TempDir()
-		t.Setenv("CK_VISUALS_PATH", dir)
+		t.Setenv("VD_VISUALS_PATH", dir)
 		got := defaultErdBase()
 		if got != dir {
 			t.Fatalf("want %q got %q", dir, got)
@@ -45,7 +45,7 @@ func TestDefaultErdBase(t *testing.T) {
 		}
 		t.Cleanup(func() { _ = os.Chdir(orig) })
 
-		t.Setenv("CK_VISUALS_PATH", "")
+		t.Setenv("VD_VISUALS_PATH", "")
 		got := defaultErdBase()
 		// git rev-parse may resolve symlinks (e.g. /var → /private/var on macOS).
 		resolvedRoot, _ := filepath.EvalSymlinks(root)
@@ -59,7 +59,7 @@ func TestDefaultErdBase(t *testing.T) {
 	})
 
 	t.Run("fallback .diagrams", func(t *testing.T) {
-		// No git repo, no CK_VISUALS_PATH.
+		// No git repo, no VD_VISUALS_PATH.
 		dir := t.TempDir()
 		orig, err := os.Getwd()
 		if err != nil {
@@ -70,7 +70,7 @@ func TestDefaultErdBase(t *testing.T) {
 		}
 		t.Cleanup(func() { _ = os.Chdir(orig) })
 
-		t.Setenv("CK_VISUALS_PATH", "")
+		t.Setenv("VD_VISUALS_PATH", "")
 		got := defaultErdBase()
 		if got != ".diagrams" {
 			t.Fatalf("want .diagrams got %q", got)

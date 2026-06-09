@@ -11,7 +11,7 @@ intermediate representation, and optionally DBML.
 ### erd generate
 
 Introspect a connection, write outputs to `--out-dir` (default resolved as:
-`$CK_VISUALS_PATH/<conn>-erd` → `<git-root>/.work/visuals/<conn>-erd` when `.work` exists → `.diagrams/<conn>-erd`),
+`$VD_VISUALS_PATH/<conn>-erd` → `<git-root>/.work/visuals/<conn>-erd` when `.work` exists → `.diagrams/<conn>-erd`),
 and return an Envelope with `kind: erd.generate`.
 
 ```
