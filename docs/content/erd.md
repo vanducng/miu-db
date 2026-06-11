@@ -11,8 +11,12 @@ intermediate representation, and optionally DBML.
 ### erd generate
 
 Introspect a connection, write outputs to `--out-dir` (default resolved as:
-`$VD_VISUALS_PATH/<conn>-erd` → `<git-root>/.work/visuals/<conn>-erd` when `.work` exists → `.diagrams/<conn>-erd`),
-and return an Envelope with `kind: erd.generate`.
+`$VD_VISUALS_PATH/<conn-slug>-erd` → `<git-root>/.work/visuals/<conn-slug>-erd` when `.work` exists → `.diagrams/<conn-slug>-erd`),
+and return an Envelope with `kind: erd.generate`. The connection ref is slugified into one
+flat path segment (e.g. `prod/orders` → `prod-orders-erd`); an explicit `--out-dir` is used
+verbatim and overrides this default. Slugification is lossy, so refs that differ only in
+separator characters (`prod/orders` vs `prod-orders`) share one default folder — pass
+`--out-dir` to disambiguate if you keep such connections side by side.
 
 ```
 miudb erd generate --connection myconn --output json
