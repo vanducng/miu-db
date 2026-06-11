@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.9.1](https://github.com/vanducng/miu-db/compare/v0.9.0...v0.9.1) (2026-06-11)
+
+
+### Bug Fixes
+
+* **erd:** slugify default visuals leaf so group/name stays flat ([#49](https://github.com/vanducng/miu-db/issues/49)) ([6007a1b](https://github.com/vanducng/miu-db/commit/6007a1b28e922eac8b181485f1d1f380c60dc6b0))
+
 ## [0.9.0](https://github.com/vanducng/miu-db/compare/v0.8.1...v0.9.0) (2026-06-08)
 
 
