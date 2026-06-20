@@ -26,16 +26,23 @@ func introspectSQLite(ctx context.Context, db *sql.DB, _ string, filter []string
 	for i := range tables {
 		name := tables[i].Name
 		if err := sqliteColumns(ctx, db, name, &tables[i]); err != nil {
-			return nil, err
+			return nil, fmt.Errorf("introspect table %q columns: %w", name, err)
 		}
 		if err := sqliteFKs(ctx, db, name, &tables[i]); err != nil {
-			return nil, err
+			return nil, fmt.Errorf("introspect table %q foreign keys: %w", name, err)
 		}
 		if err := sqliteIndexes(ctx, db, name, &tables[i]); err != nil {
-			return nil, err
+			return nil, fmt.Errorf("introspect table %q indexes: %w", name, err)
 		}
 	}
 	return tables, nil
+}
+
+// quoteIdent escapes a SQLite identifier for interpolation where a bound
+// parameter is not allowed (PRAGMA args, FROM targets). %q is wrong here: it
+// backslash-escapes embedded quotes, but SQLite doubles them.
+func quoteIdent(name string) string {
+	return `"` + strings.ReplaceAll(name, `"`, `""`) + `"`
 }
 
 func sqliteTables(ctx context.Context, db *sql.DB, keep func(string) bool) ([]Table, error) {
@@ -56,8 +63,8 @@ func sqliteTables(ctx context.Context, db *sql.DB, keep func(string) bool) ([]Ta
 			continue
 		}
 		var rowCount int64
-		if err := db.QueryRowContext(ctx, fmt.Sprintf(`SELECT COUNT(*) FROM %q`, name)).Scan(&rowCount); err != nil {
-			return nil, err
+		if err := db.QueryRowContext(ctx, fmt.Sprintf(`SELECT COUNT(*) FROM %s`, quoteIdent(name))).Scan(&rowCount); err != nil {
+			return nil, fmt.Errorf("count rows for %q: %w", name, err)
 		}
 		tables = append(tables, Table{Name: name, Rows: rowCount, PK: []string{}, Columns: []Column{}, FKs: []FK{}, Indexes: []Index{}})
 	}
@@ -65,7 +72,7 @@ func sqliteTables(ctx context.Context, db *sql.DB, keep func(string) bool) ([]Ta
 }
 
 func sqliteColumns(ctx context.Context, db *sql.DB, tableName string, t *Table) error {
-	rows, err := db.QueryContext(ctx, fmt.Sprintf(`PRAGMA table_info(%q)`, tableName))
+	rows, err := db.QueryContext(ctx, fmt.Sprintf(`PRAGMA table_info(%s)`, quoteIdent(tableName)))
 	if err != nil {
 		return err
 	}
@@ -118,7 +125,7 @@ func sqliteColumns(ctx context.Context, db *sql.DB, tableName string, t *Table) 
 }
 
 func sqliteFKs(ctx context.Context, db *sql.DB, tableName string, t *Table) error {
-	rows, err := db.QueryContext(ctx, fmt.Sprintf(`PRAGMA foreign_key_list(%q)`, tableName))
+	rows, err := db.QueryContext(ctx, fmt.Sprintf(`PRAGMA foreign_key_list(%s)`, quoteIdent(tableName)))
 	if err != nil {
 		return err
 	}
@@ -163,7 +170,7 @@ func sqliteFKs(ctx context.Context, db *sql.DB, tableName string, t *Table) erro
 }
 
 func sqliteIndexes(ctx context.Context, db *sql.DB, tableName string, t *Table) error {
-	rows, err := db.QueryContext(ctx, fmt.Sprintf(`PRAGMA index_list(%q)`, tableName))
+	rows, err := db.QueryContext(ctx, fmt.Sprintf(`PRAGMA index_list(%s)`, quoteIdent(tableName)))
 	if err != nil {
 		return err
 	}
@@ -213,7 +220,7 @@ func sqliteIndexDef(ctx context.Context, db *sql.DB, idxName string, unique int)
 	}
 
 	// Synthesize def from PRAGMA index_info when sql is NULL (e.g. auto-created unique indexes).
-	rows, err := db.QueryContext(ctx, fmt.Sprintf(`PRAGMA index_info(%q)`, idxName))
+	rows, err := db.QueryContext(ctx, fmt.Sprintf(`PRAGMA index_info(%s)`, quoteIdent(idxName)))
 	if err != nil {
 		return "", err
 	}

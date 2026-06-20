@@ -244,6 +244,35 @@ func TestIntrospectSQLite_Composite(t *testing.T) {
 	}
 }
 
+// Identifiers with embedded double-quotes must round-trip: %q would emit
+// backslash escapes and break every PRAGMA/COUNT call.
+func TestIntrospectSQLite_QuotedIdentifier(t *testing.T) {
+	db := openTestDB(t)
+	for _, s := range []string{
+		`CREATE TABLE "we""ird" (id INTEGER PRIMARY KEY, val TEXT)`,
+		`CREATE INDEX "idx""x" ON "we""ird" (val)`,
+		`INSERT INTO "we""ird" (id, val) VALUES (1, 'a')`,
+	} {
+		if _, err := db.Exec(s); err != nil {
+			t.Fatalf("seed %q: %v", s, err)
+		}
+	}
+
+	tables, err := introspectSQLite(context.Background(), db, "", nil)
+	if err != nil {
+		t.Fatalf("introspect: %v", err)
+	}
+	if len(tables) != 1 || tables[0].Name != `we"ird` {
+		t.Fatalf("want table %q, got %+v", `we"ird`, tables)
+	}
+	if tables[0].Rows != 1 {
+		t.Errorf("rows = %d, want 1", tables[0].Rows)
+	}
+	if len(tables[0].Indexes) != 1 || tables[0].Indexes[0].Name != `idx"x` {
+		t.Errorf("indexes = %+v, want [idx\"x]", tables[0].Indexes)
+	}
+}
+
 func checkCol(t *testing.T, c Column, wantName, wantNullable string, wantOrd int) {
 	t.Helper()
 	if c.Name != wantName {
