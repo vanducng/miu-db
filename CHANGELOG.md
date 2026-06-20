@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.10.0](https://github.com/vanducng/miu-db/compare/v0.9.1...v0.10.0) (2026-06-20)
+
+
+### Features
+
+* **erd:** add SQLite introspection for ERD generation ([#51](https://github.com/vanducng/miu-db/issues/51)) ([cd1487a](https://github.com/vanducng/miu-db/commit/cd1487a121dbf193174078f5af2ffe2b48ea3d76))
+
 ## [0.9.1](https://github.com/vanducng/miu-db/compare/v0.9.0...v0.9.1) (2026-06-11)
 
 
