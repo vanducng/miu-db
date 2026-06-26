@@ -1,6 +1,6 @@
 ---
 title: Tech Stack
-description: Runtime, libraries, and release tooling used by miudb.
+description: Runtime, libraries, and release tooling used by miu-db.
 ---
 
 # Tech Stack

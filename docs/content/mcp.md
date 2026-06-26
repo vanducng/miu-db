@@ -1,11 +1,11 @@
 ---
 title: MCP Server
-description: Configure miudb as a local stdio MCP server for coding agents.
+description: Configure miu-db as a local stdio MCP server for coding agents.
 ---
 
 # MCP Server
 
-`miudb mcp serve --transport stdio` exposes saved miudb connections to MCP
+`miudb mcp serve --transport stdio` exposes saved miu-db connections to MCP
 clients over standard input/output. It is separate from the native
 `miudb serve --protocol jsonrpc|ndjson` protocol used by Neovim and custom
 clients.

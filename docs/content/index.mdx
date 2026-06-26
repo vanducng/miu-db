@@ -5,30 +5,86 @@ description: Headless database CLI for humans and agents.
 
 import { CardGrid, LinkCard } from '@astrojs/starlight/components';
 
-`miudb` keeps connections, secrets, tunnels, adapters, query execution, schema inspection, and machine-readable output in a Go core that can be driven from the shell, Neovim, or future UIs. Start with [Install](/go-install/), or jump to the [Agent CLI](/agent-cli/).
+<p><img src="/brand/banner.png" alt="miu-db" width="840" /></p>
+
+**miu-db** is headless database access for the CLI, MCP hosts, and editor workflows. The `miudb` binary keeps saved connections, secret resolution, tunnels, adapters, query execution, schema inspection, ERD generation, and machine-readable output in one local Go core.
+
+The user-facing product is **miu-db**. The command stays `miudb`.
+
+:::note[What ships today]
+Native config under `~/.config/miu/db`, Keychain/keyring-backed secrets, SQLite/PostgreSQL/MySQL/Snowflake/BigQuery adapters, SSH tunnels, JSON CLI envelopes, activity logs, ERD diagrams, MCP tools, and a Neovim SQL-buffer client all ship today.
+:::
+
+## Start here
+
+<CardGrid>
+  <LinkCard title="Install" href="/go-install/" description="Homebrew, go install, Windows zip, and local checkout verification." />
+  <LinkCard title="Daily Driver" href="/go-daily-driver/" description="Add connections, test them, import shared config, and run bounded queries." />
+  <LinkCard title="Agent CLI" href="/agent-cli/" description="Discovery commands, JSON output, and agent-safe database workflows." />
+  <LinkCard title="MCP Server" href="/mcp/" description="Local stdio tools and resources for Codex, Claude Code, Cursor, and VS Code." />
+  <LinkCard title="ERD Diagrams" href="/erd/" description="Interactive offline entity-relationship diagrams plus DBML from MySQL/Postgres." />
+  <LinkCard title="Authentication" href="/authentication/" description="Snowflake OAuth, BigQuery ADC, token storage, and secret-handling guarantees." />
+  <LinkCard title="CLI Contract" href="/cli-contract/" description="Stable JSON envelopes, bounded query output, pagination, and redacted errors." />
+  <LinkCard title="System Architecture" href="/system-architecture/" description="Config, secrets, adapters, tunnels, workers, MCP, and result paging." />
+</CardGrid>
 
 ## What's inside
 
-<CardGrid>
-  <LinkCard title="Daily Driver" href="/go-daily-driver/" description="SQLite, PostgreSQL, MySQL, Snowflake, BigQuery, and SSH tunnels." />
-  <LinkCard title="Headless Core" href="/system-architecture/" description="Config, secrets, adapters, tunnels, workers, and result paging." />
-  <LinkCard title="Agent Contract" href="/cli-contract/" description="Stable JSON envelopes, bounded query output, and redacted errors." />
-  <LinkCard title="MCP Server" href="/mcp/" description="Local stdio tools and resources for Codex, Claude Code, Cursor, and VS Code." />
-  <LinkCard title="ERD Diagrams" href="/erd/" description="Interactive offline entity-relationship diagrams + DBML from MySQL/Postgres." />
-</CardGrid>
+### Connect and query
 
-## Core Model
+- **Native store** — [Daily Driver](/go-daily-driver/)
+  - Config lives under `~/.config/miu/db`.
+  - Sensitive values are classified before persistence.
+  - New credentials use the `miudb` OS Keychain/keyring service by default.
+- **Adapters** — [Install](/go-install/) · [Cloud adapters](/cloud-adapters/)
+  - SQLite, PostgreSQL, MySQL, Snowflake, BigQuery, and SSH tunnels.
+  - Per-call session context via `--session key=value` where supported.
+- **Query execution** — [Agent CLI](/agent-cli/)
+  - `query run` for one bounded statement.
+  - `query script` for multi-statement Snowflake/MySQL scripts.
+  - Pagination through cursors instead of unbounded stdout dumps.
 
-- The Go CLI is named `miudb`.
-- Native config lives under `~/.config/miu/db`.
-- Sensitive values are classified before persistence.
-- New credentials use the `miudb` OS Keychain/keyring service by default.
-- Migrated file credentials can stay in `credentials-export.json`.
-- SSH tunnel-backed connections are first-class for TCP adapters.
+### Agent-ready contract
 
-## Interfaces
+- **JSON envelopes** — [CLI Contract](/cli-contract/)
+  - stdout is data; stderr is diagnostics.
+  - Stable `miudb.cli/v1` responses for success and typed errors.
+  - Redacted connection metadata and bounded result output.
+- **MCP server** — [MCP Server](/mcp/)
+  - `miudb mcp serve --transport stdio` exposes local tools and resources.
+  - Connection allowlists, read-only query defaults, and output byte caps.
+- **Schema inspection** — [Agent CLI](/agent-cli/)
+  - Agents can discover command shape with `miudb commands` and `miudb describe`.
+  - `schema_tree` gives bounded schema context before writing SQL.
 
-- CLI and agents use JSON envelopes on stdout.
-- MCP hosts use `miudb mcp serve --transport stdio`.
-- Neovim uses normal `.sql` buffers through `ui/miu-db.nvim`.
-- Future UIs should sit under `ui/` and call the core through the same command/protocol boundary.
+### Diagrams and editor workflows
+
+- **ERD diagrams** — [ERD Diagrams](/erd/)
+  - Introspect MySQL/Postgres into offline HTML, JSON, and DBML artifacts.
+  - Optional agent-authored metadata adds groups and descriptions without touching live data.
+- **Neovim client** — [System Architecture](/system-architecture/)
+  - `ui/miu-db.nvim` shells out to the same Go core.
+  - SQL stays in normal `.sql` buffers.
+
+### Operations
+
+- **Activity log** — [Daily Driver](/go-daily-driver/)
+  - Query, exec, and schema operations write JSONL metadata.
+  - Result rows are never stored.
+- **Deployment** — [Deployment](/deployment/)
+  - Single Go binary, Homebrew/GitHub Releases, and a static docs site.
+  - Local checkout smoke commands use the same binary path as release builds.
+
+## A 30-second tour
+
+```sh
+miudb connections add --name local-app --db-type sqlite --path ./app.db -o json
+miudb connections list --basic -o json
+miudb connections test local-app -o json
+miudb query run -c local-app --sql 'select 1 as one' -o json
+miudb schema tree -c local-app -o json
+miudb erd generate -c local-app --out-dir ./.miu-db/erd -o json
+miudb mcp serve --transport stdio
+```
+
+Every command that agents should call emits compact JSON by default. New here? Start with **[Install](/go-install/)**, then connect the local MCP server from **[MCP Server](/mcp/)**.

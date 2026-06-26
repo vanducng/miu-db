@@ -82,14 +82,14 @@ The generated `index.html` is a fully-offline interactive viewer:
 ## Two-layer model
 
 ```
-Layer 1 — deterministic (miudb)
+Layer 1 — deterministic (miu-db)
   introspect schema → schema.json IR → HTML / DBML / JSON
 
 Layer 2 — agentic (you / LLM)
   read schema.json → write meta.json → re-run erd generate --meta meta.json
 ```
 
-miudb never calls an LLM. An agent reads `schema.json`, authors `meta.json`,
+miu-db never calls an LLM. An agent reads `schema.json`, authors `meta.json`,
 then re-runs `erd generate` or `erd serve` with `--meta` to produce the polished
 diagram.
 

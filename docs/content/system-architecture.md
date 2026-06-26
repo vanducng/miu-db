@@ -1,6 +1,6 @@
 ---
 title: System Architecture
-description: Components and data flow in the Go miudb core.
+description: Components and data flow in the Go miu-db core.
 ---
 
 # System Architecture
@@ -12,7 +12,7 @@ Shell / agents        MCP hosts        Neovim SQL buffers        Future UI
       |                  |                    |                    |
       +---------- CLI / MCP / protocol boundary ------------------+
                                       |
-                                   miudb
+                                  miu-db
                                       |
                 config, secrets, tunnels, adapters, workers
                                       |

@@ -5,7 +5,7 @@ description: OAuth login flows for Snowflake and BigQuery
 
 ## Overview
 
-miudb uses an asymmetric login model: each backend has a one-time interactive
+miu-db uses an asymmetric login model: each backend has a one-time interactive
 step that stores a refresh token, and all subsequent queries use the stored
 token silently.
 
@@ -25,7 +25,7 @@ token silently.
    for the redirect.
 2. The access token and refresh token are stored in the OS keyring under the
    `miudb` service.
-3. On every `query run` or `connections test`, miudb loads the stored token,
+3. On every `query run` or `connections test`, miu-db loads the stored token,
    refreshes it automatically when it is within 5 minutes of expiry, and injects
    the fresh access token into the Snowflake driver config — no manual re-login
    needed until the refresh token itself expires.
@@ -101,7 +101,7 @@ miudb auth logout sf-prod --output json
 > **Recommendation:** Use `OAUTH_CLIENT_TYPE = 'PUBLIC'` in the security
 > integration. This eliminates `oauth_client_secret` entirely and relies on
 > PKCE (S256) for proof of code verifier — the same model used by native
-> desktop apps. Confidential-client secret storage in miudb is deferred.
+> desktop apps. Confidential-client secret storage in miu-db is deferred.
 
 ---
 
