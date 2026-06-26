@@ -42,7 +42,7 @@ export default defineConfig({
           label: 'Architecture',
           items: ['system-architecture', 'golang-architecture', 'tech-stack', 'cloud-adapters'],
         },
-        { label: 'Operations', items: ['deployment', 'development-guidelines', 'go-release'] },
+        { label: 'Operations', items: ['deployment', 'development-guidelines'] },
         {
           label: 'Related docs',
           items: [

@@ -1,5 +1,5 @@
 ---
-title: Development Guidelines
+title: Development
 description: Local development and contribution rules for miu-db.
 ---
 

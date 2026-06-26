@@ -1,5 +1,5 @@
 ---
-title: "miu-db Daily Driver Notes"
+title: "Daily driver"
 ---
 
 miu-db uses a native Go store by default:

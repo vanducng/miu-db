@@ -1,5 +1,5 @@
 ---
-title: "ERD Generation"
+title: "ERD diagrams"
 ---
 
 `miudb erd` introspects a live database connection and produces an interactive

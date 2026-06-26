@@ -19,20 +19,20 @@ Native config under `~/.config/miu/db`, Keychain/keyring-backed secrets, SQLite/
 
 <CardGrid>
   <LinkCard title="Install" href="/go-install/" description="Homebrew, go install, Windows zip, and local checkout verification." />
-  <LinkCard title="Daily Driver" href="/go-daily-driver/" description="Add connections, test them, import shared config, and run bounded queries." />
+  <LinkCard title="Daily driver" href="/go-daily-driver/" description="Add connections, test them, import shared config, and run bounded queries." />
   <LinkCard title="Agent CLI" href="/agent-cli/" description="Discovery commands, JSON output, and agent-safe database workflows." />
-  <LinkCard title="MCP Server" href="/mcp/" description="Local stdio tools and resources for Codex, Claude Code, Cursor, and VS Code." />
-  <LinkCard title="ERD Diagrams" href="/erd/" description="Interactive offline entity-relationship diagrams plus DBML from MySQL/Postgres." />
+  <LinkCard title="MCP server" href="/mcp/" description="Local stdio tools and resources for Codex, Claude Code, Cursor, and VS Code." />
+  <LinkCard title="ERD diagrams" href="/erd/" description="Interactive offline entity-relationship diagrams plus DBML from MySQL/Postgres." />
   <LinkCard title="Authentication" href="/authentication/" description="Snowflake OAuth, BigQuery ADC, token storage, and secret-handling guarantees." />
-  <LinkCard title="CLI Contract" href="/cli-contract/" description="Stable JSON envelopes, bounded query output, pagination, and redacted errors." />
-  <LinkCard title="System Architecture" href="/system-architecture/" description="Config, secrets, adapters, tunnels, workers, MCP, and result paging." />
+  <LinkCard title="CLI contract" href="/cli-contract/" description="Stable JSON envelopes, bounded query output, pagination, and redacted errors." />
+  <LinkCard title="System architecture" href="/system-architecture/" description="Config, secrets, adapters, tunnels, workers, MCP, and result paging." />
 </CardGrid>
 
 ## What's inside
 
 ### Connect and query
 
-- **Native store** — [Daily Driver](/go-daily-driver/)
+- **Native store** — [Daily driver](/go-daily-driver/)
   - Config lives under `~/.config/miu/db`.
   - Sensitive values are classified before persistence.
   - New credentials use the `miudb` OS Keychain/keyring service by default.
@@ -46,11 +46,11 @@ Native config under `~/.config/miu/db`, Keychain/keyring-backed secrets, SQLite/
 
 ### Agent-ready contract
 
-- **JSON envelopes** — [CLI Contract](/cli-contract/)
+- **JSON envelopes** — [CLI contract](/cli-contract/)
   - stdout is data; stderr is diagnostics.
   - Stable `miudb.cli/v1` responses for success and typed errors.
   - Redacted connection metadata and bounded result output.
-- **MCP server** — [MCP Server](/mcp/)
+- **MCP server** — [MCP server](/mcp/)
   - `miudb mcp serve --transport stdio` exposes local tools and resources.
   - Connection allowlists, read-only query defaults, and output byte caps.
 - **Schema inspection** — [Agent CLI](/agent-cli/)
@@ -59,16 +59,16 @@ Native config under `~/.config/miu/db`, Keychain/keyring-backed secrets, SQLite/
 
 ### Diagrams and editor workflows
 
-- **ERD diagrams** — [ERD Diagrams](/erd/)
+- **ERD diagrams** — [ERD diagrams](/erd/)
   - Introspect MySQL/Postgres into offline HTML, JSON, and DBML artifacts.
   - Optional agent-authored metadata adds groups and descriptions without touching live data.
-- **Neovim client** — [System Architecture](/system-architecture/)
+- **Neovim client** — [System architecture](/system-architecture/)
   - `ui/miu-db.nvim` shells out to the same Go core.
   - SQL stays in normal `.sql` buffers.
 
 ### Operations
 
-- **Activity log** — [Daily Driver](/go-daily-driver/)
+- **Activity log** — [Daily driver](/go-daily-driver/)
   - Query, exec, and schema operations write JSONL metadata.
   - Result rows are never stored.
 - **Deployment** — [Deployment](/deployment/)
@@ -87,4 +87,4 @@ miudb erd generate -c local-app --out-dir ./.miu-db/erd -o json
 miudb mcp serve --transport stdio
 ```
 
-Every command that agents should call emits compact JSON by default. New here? Start with **[Install](/go-install/)**, then connect the local MCP server from **[MCP Server](/mcp/)**.
+Every command that agents should call emits compact JSON by default. New here? Start with **[Install](/go-install/)**, then connect the local MCP server from **[MCP server](/mcp/)**.

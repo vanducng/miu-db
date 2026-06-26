@@ -1,5 +1,5 @@
 ---
-title: Tech Stack
+title: Tech stack
 description: Runtime, libraries, and release tooling used by miu-db.
 ---
 

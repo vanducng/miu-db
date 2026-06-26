@@ -1,5 +1,5 @@
 ---
-title: "miu-db CLI Contract"
+title: "CLI contract"
 ---
 
 The Go track exposes `miudb` as the primary binary. `miu-db` remains the Python

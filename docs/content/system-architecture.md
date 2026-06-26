@@ -1,5 +1,5 @@
 ---
-title: System Architecture
+title: System architecture
 description: Components and data flow in the Go miu-db core.
 ---
 
