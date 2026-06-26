@@ -1,5 +1,5 @@
 ---
-title: "miudb Install"
+title: "miu-db Install"
 ---
 
 The Go binary is named `miudb`.

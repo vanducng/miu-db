@@ -1,6 +1,6 @@
 ---
 title: Development Guidelines
-description: Local development and contribution rules for miudb.
+description: Local development and contribution rules for miu-db.
 ---
 
 # Development Guidelines

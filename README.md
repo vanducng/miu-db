@@ -1,12 +1,13 @@
 <p align="center">
-  <img src="assets/logo.png" alt="miudb logo" width="128">
+  <img src="docs/public/brand/banner.png" alt="miu-db" width="840">
 </p>
 
-<h1 align="center">miudb</h1>
+<h1 align="center">miu-db</h1>
 
 <p align="center">A headless database CLI for humans and agents.</p>
 
-`miudb` is the Go core for miu-db. It keeps the database layer focused on
+**miu-db** is the Go database core behind the `miudb` binary. It keeps the
+database layer focused on
 connections, credentials, tunnels, adapters, query execution, schema inspection,
 MCP, and machine-readable output.
 
@@ -174,7 +175,7 @@ miudb connections add \
   --output json
 ```
 
-See [the authentication docs](https://miudb.vanducng.dev/authentication/) for
+See [the authentication docs](https://db.miu.sh/authentication/) for
 the Snowflake `CREATE SECURITY INTEGRATION` snippet, all option keys, and
 secret-handling guarantees.
 
@@ -192,7 +193,7 @@ SSH tunnel-backed connections are supported for TCP adapters.
 
 ## MCP
 
-Use miudb as a local stdio MCP server for coding-agent hosts:
+Use miu-db as a local stdio MCP server for coding-agent hosts:
 
 ```bash
 miudb mcp serve --transport stdio
@@ -228,7 +229,7 @@ args = ["mcp", "serve", "--transport", "stdio"]
 ```
 
 If the host can't find `miudb`, use the full path from `which miudb`. See
-[the MCP docs](https://miudb.vanducng.dev/mcp/) for VS Code, per-connection
+[the MCP docs](https://db.miu.sh/mcp/) for VS Code, per-connection
 scoping, and tool reference.
 
 ## Activity Log
@@ -316,5 +317,5 @@ go build -buildvcs=false -o ./.miu-db/miudb ./cmd/miudb
 ./.miu-db/miudb commands --output json
 ```
 
-See [the architecture docs](https://miudb.vanducng.dev/golang-architecture/) and
-[the agent CLI docs](https://miudb.vanducng.dev/agent-cli/).
+See [the architecture docs](https://db.miu.sh/golang-architecture/) and
+[the agent CLI docs](https://db.miu.sh/agent-cli/).
