@@ -1,5 +1,5 @@
 ---
-title: "Agent CLI Usage"
+title: "Usage"
 ---
 
 Use JSON output for all agent calls:

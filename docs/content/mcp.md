@@ -1,5 +1,5 @@
 ---
-title: MCP Server
+title: MCP server
 description: Configure miu-db as a local stdio MCP server for coding agents.
 ---
 

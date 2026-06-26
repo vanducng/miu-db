@@ -1,5 +1,5 @@
 ---
-title: "Go Track Architecture Notes"
+title: "Go architecture"
 ---
 
 Date: 2026-05-28

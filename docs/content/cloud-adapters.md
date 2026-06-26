@@ -1,5 +1,5 @@
 ---
-title: "Cloud Adapters"
+title: "Cloud adapters"
 ---
 
 ## BigQuery
