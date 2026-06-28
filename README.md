@@ -18,13 +18,13 @@ One command, auto-detects OS and architecture.
 **macOS / Linux:**
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/vanducng/miu-db/main/scripts/install.sh | sh
+curl -fsSL https://db.miu.sh/install.sh | sh
 ```
 
 **Windows** (PowerShell):
 
 ```powershell
-irm https://raw.githubusercontent.com/vanducng/miu-db/main/scripts/install.ps1 | iex
+irm https://db.miu.sh/install.ps1 | iex
 ```
 
 Both honor `MIUDB_VERSION` (pin a release) and `MIUDB_INSTALL_DIR`. Other options:

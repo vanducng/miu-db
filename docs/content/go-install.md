@@ -6,17 +6,27 @@ The Go binary is named `miudb`.
 
 ## Release Install
 
+One command, auto-detects OS and architecture (honors `MIUDB_VERSION` and
+`MIUDB_INSTALL_DIR`):
+
 ```bash
-brew install vanducng/tap/miudb
+curl -fsSL https://db.miu.sh/install.sh | sh
 ```
 
-Alternative:
+Alternatives:
 
 ```bash
+brew install vanducng/tap/miudb
 go install github.com/vanducng/miu-db/cmd/miudb@v0.2.0
 ```
 
-Windows release archives are published on GitHub Releases as zip files. In
+Windows (PowerShell):
+
+```powershell
+irm https://db.miu.sh/install.ps1 | iex
+```
+
+Windows release archives are also published on GitHub Releases as zip files. In
 PowerShell:
 
 ```powershell
