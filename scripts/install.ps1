@@ -1,6 +1,6 @@
 #Requires -Version 5.1
 # Install miudb on Windows. Auto-detects architecture and fetches the matching release.
-# Usage: irm https://raw.githubusercontent.com/vanducng/miu-db/main/scripts/install.ps1 | iex
+# Usage: irm https://db.miu.sh/install.ps1 | iex
 # Env:   $env:MIUDB_VERSION='v0.2.4'   $env:MIUDB_INSTALL_DIR='C:\tools\miudb'
 $ErrorActionPreference = 'Stop'
 [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12

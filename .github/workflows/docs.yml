@@ -20,6 +20,11 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v6
+      # Serve the canonical installers at db.miu.sh/install.{sh,ps1} (single source: scripts/).
+      - name: Stage installers at site root
+        run: |
+          cp scripts/install.sh docs/public/install.sh
+          cp scripts/install.ps1 docs/public/install.ps1
       - name: Build with Astro
         uses: withastro/action@v6
         with:

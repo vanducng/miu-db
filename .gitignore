@@ -13,6 +13,10 @@ node_modules/
 docs/dist/
 .astro/
 
+# CI stages the canonical scripts/install.{sh,ps1} here at docs build time
+docs/public/install.sh
+docs/public/install.ps1
+
 # Local working artifacts (plans, phases, reports, decisions, journals) — never commit
 plans/
 docs/journals/
