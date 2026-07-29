@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.10.2](https://github.com/vanducng/miu-db/compare/v0.10.1...v0.10.2) (2026-07-29)
+
+
+### Bug Fixes
+
+* **docs:** center navigation shell ([#58](https://github.com/vanducng/miu-db/issues/58)) ([f5d64fd](https://github.com/vanducng/miu-db/commit/f5d64fdeb3e7d6d7337d15229a0c378aa877e934))
+
 ## [0.10.1](https://github.com/vanducng/miu-db/compare/v0.10.0...v0.10.1) (2026-07-29)
 
 
