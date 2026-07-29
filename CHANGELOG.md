@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.10.4](https://github.com/vanducng/miu-db/compare/v0.10.3...v0.10.4) (2026-07-29)
+
+
+### Bug Fixes
+
+* **docs:** scope search trigger sizing ([#62](https://github.com/vanducng/miu-db/issues/62)) ([fc30a71](https://github.com/vanducng/miu-db/commit/fc30a71dceae5e9cc17bc75d839fe1cc7ca0935a))
+
 ## [0.10.3](https://github.com/vanducng/miu-db/compare/v0.10.2...v0.10.3) (2026-07-29)
 
 
