@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.10.1](https://github.com/vanducng/miu-db/compare/v0.10.0...v0.10.1) (2026-07-29)
+
+
+### Bug Fixes
+
+* **docs:** restore Starlight layout ([#56](https://github.com/vanducng/miu-db/issues/56)) ([ae8845f](https://github.com/vanducng/miu-db/commit/ae8845f63f9ce5a265f7b40317469cebcfbc48a2))
+
 ## [0.10.0](https://github.com/vanducng/miu-db/compare/v0.9.1...v0.10.0) (2026-06-20)
 
 
