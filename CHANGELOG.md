@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.10.5](https://github.com/vanducng/miu-db/compare/v0.10.4...v0.10.5) (2026-07-29)
+
+
+### Bug Fixes
+
+* **docs:** keep header search clickable ([#64](https://github.com/vanducng/miu-db/issues/64)) ([972ae69](https://github.com/vanducng/miu-db/commit/972ae69f3167c5369f99c564200c33365af89758))
+
 ## [0.10.4](https://github.com/vanducng/miu-db/compare/v0.10.3...v0.10.4) (2026-07-29)
 
 
