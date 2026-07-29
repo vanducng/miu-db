@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.10.3](https://github.com/vanducng/miu-db/compare/v0.10.2...v0.10.3) (2026-07-29)
+
+
+### Bug Fixes
+
+* **docs:** restore shell spacing ([#60](https://github.com/vanducng/miu-db/issues/60)) ([a6e8562](https://github.com/vanducng/miu-db/commit/a6e85620754efaa9058f9ba80e473fa64377be79))
+
 ## [0.10.2](https://github.com/vanducng/miu-db/compare/v0.10.1...v0.10.2) (2026-07-29)
 
 
