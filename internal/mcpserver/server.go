@@ -65,6 +65,8 @@ func newServer(services *core.Services, opts Options, logger *slog.Logger) (*mcp
 	}, &mcp.ServerOptions{
 		Logger: logger,
 	})
+	// Must run for every tools/list, so install it before any tool registers.
+	server.AddReceivingMiddleware(schemaCompatMiddleware)
 	policy := newSafetyPolicy(opts)
 	registerTools(server, services, opts, policy)
 	registerResources(server, services, policy)
