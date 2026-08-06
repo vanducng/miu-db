@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.10.6](https://github.com/vanducng/miu-db/compare/v0.10.5...v0.10.6) (2026-08-06)
+
+
+### Bug Fixes
+
+* **mcp:** rewrote boolean subschemas so clients can load the tool list ([#68](https://github.com/vanducng/miu-db/issues/68)) ([2a9f02d](https://github.com/vanducng/miu-db/commit/2a9f02d872d4975d9cd2bb14adcdf8252451f684))
+
 ## [0.10.5](https://github.com/vanducng/miu-db/compare/v0.10.4...v0.10.5) (2026-07-29)
 
 
