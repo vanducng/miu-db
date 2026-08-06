@@ -1,6 +1,7 @@
 package mcpserver
 
 import (
+	"context"
 	"encoding/json"
 	"testing"
 )
@@ -117,5 +118,35 @@ func TestNormalizeSchemaHandlesTopLevelBoolean(t *testing.T) {
 	out, ok := normalizeSchema(true).(map[string]any)
 	if !ok || len(out) != 0 {
 		t.Fatalf("top-level true should become {}, got %v", normalizeSchema(true))
+	}
+}
+
+// Guards the wiring, not the pure function. Without the AddReceivingMiddleware
+// call in newServer this fails, whereas every other test in this file still
+// passes — the single line that fixes the bug had no test of its own.
+func TestListToolsReturnsNoBooleanSubschemas(t *testing.T) {
+	session := newMCPTestSession(t, testServices(t))
+	list, err := session.ListTools(context.Background(), nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(list.Tools) == 0 {
+		t.Fatal("no tools returned; the fixture cannot detect a regression")
+	}
+
+	var found []string
+	for _, tool := range list.Tools {
+		for name, schema := range map[string]any{
+			"inputSchema":  tool.InputSchema,
+			"outputSchema": tool.OutputSchema,
+		} {
+			if schema == nil {
+				continue
+			}
+			findBooleanSubschemas(decode(t, schema), tool.Name+"."+name, &found)
+		}
+	}
+	if len(found) != 0 {
+		t.Fatalf("tools/list still exposes boolean subschemas, so clients cannot load the tool list: %v", found)
 	}
 }
