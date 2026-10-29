@@ -60,5 +60,4 @@ cd docs && npm ci && npm run build   # astro build -> docs/dist/
 `docs.yml` copies `scripts/install.sh`, `scripts/install.ps1`, and the skill to
 the site root, builds `docs/` with `withastro/action`, and deploys to GitHub
 Pages (custom domain from `docs/public/CNAME`). Every page is also served as
-Markdown at `/<page>.md`, and the architecture diagram is rebuilt from
-`docs/diagrams/architecture.archify.json` with Archify.
+Markdown at `/<page>.md`.
