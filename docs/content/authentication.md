@@ -1,39 +1,41 @@
 ---
 title: Authentication
-description: OAuth login flows for Snowflake and BigQuery
+description: Snowflake OAuth and key-pair auth, BigQuery ADC and service accounts, and how tokens are stored.
 ---
 
-## Overview
+| Backend | Auth | One-time step |
+|---|---|---|
+| Postgres, MySQL | Password | `--password` at `connections add`, stored per [secret store](/usage/#secret-stores) |
+| Snowflake | Password, key pair (JWT), or OAuth | OAuth: `miudb auth login <conn>` |
+| BigQuery | Application Default Credentials or a service-account file | `gcloud auth application-default login` |
 
-miu-db uses an asymmetric login model: each backend has a one-time interactive
-step that stores a refresh token, and all subsequent queries use the stored
-token silently.
+## Snowflake
 
-| Backend   | Login mechanism                       | Command                                    |
-|-----------|---------------------------------------|--------------------------------------------|
-| Snowflake | OAuth 2.0 (loopback + PKCE S256)      | `miudb auth login <conn>`                  |
-| BigQuery  | Application Default Credentials (ADC) | `gcloud auth application-default login`    |
+`--host` is the account, `--username` the user. Optional `--option` keys:
+`warehouse`, `role`, `database`, `schema`.
 
----
+### Key pair (JWT)
 
-## Snowflake OAuth
+```sh
+miudb connections add --name wh --db-type snowflake \
+  --host <account> --username <user> \
+  --option authenticator=snowflake_jwt \
+  --option private_key_file=~/.ssh/snowflake_key.p8 \
+  --option warehouse=DEV_WH
+```
 
-### How it works
+The key must be an unencrypted PKCS#8 PEM file.
 
-1. `miudb auth login <conn>` opens the browser to the Snowflake authorization
-   endpoint, starts a loopback listener on `http://localhost:8085/`, and waits
-   for the redirect.
-2. The access token and refresh token are stored in the OS keyring under the
-   `miudb` service.
-3. On every `query run` or `connections test`, miu-db loads the stored token,
-   refreshes it automatically when it is within 5 minutes of expiry, and injects
-   the fresh access token into the Snowflake driver config — no manual re-login
-   needed until the refresh token itself expires.
+### OAuth
 
-### Snowflake admin setup
+`miudb auth login <conn>` opens the browser, listens on
+`http://localhost:8085/`, and completes an authorization-code flow with PKCE
+(S256). The access and refresh tokens go to the keyring under the `miudb`
+service. Every later `query run` or `connections test` refreshes the access
+token when it is within 5 minutes of expiry, so you log in again only when the
+refresh token expires.
 
-Create a **PUBLIC client** integration (no client secret, PKCE only). Replace
-`<account>` with your Snowflake account identifier.
+Admin setup, once per account. A public client needs no secret:
 
 ```sql
 CREATE SECURITY INTEGRATION miudb_oauth
@@ -44,106 +46,59 @@ CREATE SECURITY INTEGRATION miudb_oauth
   OAUTH_ISSUE_REFRESH_TOKENS = TRUE
   OAUTH_REFRESH_TOKEN_VALIDITY = 86400
   ENABLED = TRUE;
+
+SELECT SYSTEM$SHOW_OAUTH_CLIENT_SECRETS('MIUDB_OAUTH');  -- copy OAUTH_CLIENT_ID
 ```
 
-After creation, retrieve the client ID:
+Add the connection (no `--password`), then log in:
 
-```sql
-SELECT SYSTEM$SHOW_OAUTH_CLIENT_SECRETS('MIUDB_OAUTH');
-```
-
-Copy the `OAUTH_CLIENT_ID` value for the connection options below.
-
-### Add a Snowflake OAuth connection
-
-```bash
-miudb connections add \
-  --name sf-prod \
-  --db-type snowflake \
-  --host <account>.snowflakecomputing.com \
-  --username <user> \
+```sh
+miudb connections add --name sf-prod --db-type snowflake \
+  --host <account>.snowflakecomputing.com --username <user> \
   --option authenticator=oauth \
   --option oauth_client_id=<client-id> \
   --option oauth_authorization_url=https://<account>.snowflakecomputing.com/oauth/authorize \
   --option oauth_token_request_url=https://<account>.snowflakecomputing.com/oauth/token-request \
-  --option oauth_scope=session:role:ANALYST \
-  --output json
+  --option oauth_scope=session:role:ANALYST
+
+miudb auth login sf-prod
+miudb auth status sf-prod
+miudb auth logout sf-prod
 ```
 
-No `--password` is required or expected for OAuth connections.
-
-### Login and query
-
-```bash
-miudb auth login sf-prod --output json
-miudb query run --connection sf-prod --sql 'SELECT CURRENT_ROLE()' --output json
-```
-
-### Token status and logout
-
-```bash
-miudb auth status sf-prod --output json
-miudb auth logout sf-prod --output json
-```
-
-### Option reference
-
-| Option key                  | Required | Default                       | Description                                       |
-|-----------------------------|----------|-------------------------------|---------------------------------------------------|
-| `authenticator`             | yes      | —                             | Must be `oauth`                                   |
-| `oauth_client_id`           | yes      | —                             | Client ID from the Snowflake security integration |
-| `oauth_authorization_url`   | yes      | —                             | `https://<account>.snowflakecomputing.com/oauth/authorize` |
-| `oauth_token_request_url`   | yes      | —                             | `https://<account>.snowflakecomputing.com/oauth/token-request` |
-| `oauth_redirect_uri`        | no       | `http://localhost:8085/`      | Must match `OAUTH_REDIRECT_URI` in the integration |
-| `oauth_scope`               | no       | —                             | Comma-separated scopes, e.g. `session:role:ANALYST` |
-| `oauth_client_secret`       | no       | —                             | Only for CONFIDENTIAL clients (not recommended; prefer PUBLIC + PKCE) |
-
-> **Recommendation:** Use `OAUTH_CLIENT_TYPE = 'PUBLIC'` in the security
-> integration. This eliminates `oauth_client_secret` entirely and relies on
-> PKCE (S256) for proof of code verifier — the same model used by native
-> desktop apps. Confidential-client secret storage in miu-db is deferred.
-
----
+| Option | Required | Default | Notes |
+|---|---|---|---|
+| `authenticator` | yes | | `oauth` |
+| `oauth_client_id` | yes | | From the security integration |
+| `oauth_authorization_url` | yes | | `https://<account>.snowflakecomputing.com/oauth/authorize` |
+| `oauth_token_request_url` | yes | | `https://<account>.snowflakecomputing.com/oauth/token-request` |
+| `oauth_redirect_uri` | no | `http://localhost:8085/` | Must match `OAUTH_REDIRECT_URI` |
+| `oauth_scope` | no | | Comma-separated, for example `session:role:ANALYST` |
+| `oauth_client_secret` | no | | Confidential clients only. Prefer a public client with PKCE. |
 
 ## BigQuery
 
-BigQuery uses Google Application Default Credentials. There is no
-`miudb auth login` step for BigQuery; authenticate once with gcloud:
+`--host` is the GCP project billed for queries.
 
-```bash
+```sh
 gcloud auth application-default login
+miudb connections add --name bq --db-type bigquery --host my-gcp-project
 ```
 
-Then add the connection:
+| Option | Default | Notes |
+|---|---|---|
+| `auth_method` | `adc` | `adc` or `service_account`. Anything else fails. |
+| `bigquery_credentials_path` | | Service-account JSON. Required for `service_account`; with `adc` it is used when set. |
+| `bigquery_quota_project` | | Project charged for quota |
 
-```bash
-miudb connections add \
-  --name bq-analytics \
-  --db-type bigquery \
-  --option project=my-gcp-project \
-  --option dataset=analytics \
-  --output json
-```
-
-### BigQuery option reference
-
-| Option key                | Required | Description                                          |
-|---------------------------|----------|------------------------------------------------------|
-| `project`                 | yes      | GCP project ID billed for queries                    |
-| `dataset`                 | no       | Default dataset for unqualified table references     |
-| `bigquery_quota_project`  | no       | Override billing project for quota purposes          |
-| `auth_method`             | no       | `adc` (default) or `service_account`                 |
-| `credentials_file`        | no       | Path to a service-account JSON key (auth_method=service_account) |
-
----
+Without credentials, queries fail with `BigQuery: no credentials found` and the
+fix: run the gcloud login, or set `bigquery_credentials_path` or
+`GOOGLE_APPLICATION_CREDENTIALS`. There is no `miudb auth login` for BigQuery.
 
 ## Secret handling
 
-- `oauth_client_secret` (when present) is **redacted** in all `connections list`
-  and `connections add` output — it appears as `{"redacted": true}` and is
-  listed under `sensitive_targets` in the response.
-- The transient access token (`__oauth_access_token`) is a runtime-only value
-  injected into memory during query execution. It is **never** written to
-  `connections.json`, never shown in any output, and never listed as a sensitive
-  target.
-- Refresh tokens are stored in the OS keyring via the `miudb` service.
+- `oauth_client_secret` is redacted in every output and listed under
+  `sensitive_targets`.
+- The access token is injected in memory at query time. It is never written to
+  `connections.json` and never printed.
+- Refresh tokens live in the keyring under the `miudb` service.

@@ -1,140 +1,98 @@
 ---
-title: "ERD diagrams"
+title: ERD diagrams
+description: Turn a SQLite, Postgres, or MySQL connection into an offline interactive ER diagram, then let an agent group and describe it.
 ---
 
-`miudb erd` introspects a live database connection and produces an interactive
-entity-relationship diagram as a self-contained HTML file, a `schema.json`
-intermediate representation, and optionally DBML.
+`miudb erd` introspects a live connection and writes a self-contained HTML
+viewer plus `schema.json`, and optionally DBML. It supports SQLite, Postgres, and
+MySQL; Snowflake and BigQuery return `erd.unsupported_db`. miudb never calls an
+LLM here; an agent adds the polish through `meta.json`.
 
 ## Commands
 
-### erd generate
-
-Introspect a connection, write outputs to `--out-dir` (default resolved as:
-`$VD_VISUALS_PATH/<conn-slug>-erd` → `<git-root>/.work/visuals/<conn-slug>-erd` when `.work` exists → `.diagrams/<conn-slug>-erd`),
-and return an Envelope with `kind: erd.generate`. The connection ref is slugified into one
-flat path segment (e.g. `prod/orders` → `prod-orders-erd`); an explicit `--out-dir` is used
-verbatim and overrides this default. Slugification is lossy, so refs that differ only in
-separator characters (`prod/orders` vs `prod-orders`) share one default folder — pass
-`--out-dir` to disambiguate if you keep such connections side by side.
-
-```
-miudb erd generate --connection myconn --output json
-miudb erd generate --connection myconn --meta .work/visuals/myconn-erd/meta.json
-miudb erd generate --connection myconn --format html,json,dbml --out-dir ./docs/erd/
+```sh
+miudb erd generate -c app                                   # index.html + schema.json
+miudb erd generate -c app --format html,json,dbml --out-dir ./docs/erd
+miudb erd generate -c app --meta ./docs/erd/meta.json       # with agent polish
+miudb erd serve -c app                                      # render and open a browser
+miudb erd serve --from ./docs/erd                           # an existing export, no database
+miudb erd meta --stub -c app --out-dir ./docs/erd           # scaffold meta.json
 ```
 
-Flags: `--connection`, `--schema`, `--tables`, `--meta`, `--out-dir`,
-`--format` (html,json,dbml), `--cdn`, `--title`. Short forms (all `erd`
-commands): `-c`/`--connection`, `-s`/`--schema`, `-m`/`--meta`, `-f`/`--format`,
-`-p`/`--port`. A connection with no default database errors with a clear
-"pass --schema" hint.
+| Flag | Commands | Notes |
+|---|---|---|
+| `-c`, `--connection` | all | Required, except `serve --from` |
+| `-s`, `--schema` | all | Defaults to the connection's database. A connection without one errors with a "pass --schema" hint. |
+| `--tables` | generate, serve | Comma-separated subset |
+| `-m`, `--meta` | generate, serve | Path to `meta.json` |
+| `-f`, `--format` | generate | `html`, `json`, `dbml`; default `html` (`schema.json` is always written) |
+| `--out-dir` | generate, meta | See below |
+| `--cdn` | generate, serve | Link renderer libraries from a CDN instead of inlining |
+| `--title` | generate, serve | Used when `meta.title` is empty |
+| `--from` | serve | Export directory or `schema.json` |
+| `-p`, `--port` | serve | `0` picks a free port |
+| `--no-open` | serve | Do not open the browser |
+| `--stub`, `--force` | meta | `--stub` is required; `--force` overwrites |
 
-### erd serve
+Default `--out-dir`, first match wins: `$VD_VISUALS_PATH/<ref-slug>-erd`, then
+`<git-root>/.work/visuals/<ref-slug>-erd` when `.work` exists, then
+`.diagrams/<ref-slug>-erd`. The ref is flattened (`team/app` becomes
+`team-app-erd`), so `team/app` and `team-app` share a folder; pass `--out-dir` to
+keep them apart.
 
-Render the ERD and open it in a local browser. Accepts a live connection
-(`--connection`) or an existing export directory (`--from`).
+## The viewer
 
-```
-miudb erd serve --connection myconn
-miudb erd serve --from .work/visuals/myconn-erd/
-```
+- Scroll to zoom, drag to pan, drag tables to move them (positions persist).
+  Minimap, `Fit`, and `Re-layout` reframe.
+- Click a table to spotlight its FK chain (depth selectable). Click a line to
+  highlight both tables and the join columns. Double-click a table for the
+  drawer: columns, types, PK/FK/audit, `ON DELETE`, incoming refs, indexes.
+- Search tables and columns, filter by domain group, toggle framework tables,
+  audit columns, and columns on nodes, hide single tables.
+- **Find path**: shortest FK chain between two tables.
+- **Insights**: missing PK, FK type mismatch, unindexed FK, orphans.
+- **DBML**: the DBML source with a Copy button.
+- **Share**: copies a link with filters and selection in the URL.
+- The header counts visible and total tables, columns, and relationships. `?`
+  lists shortcuts.
 
-Flags: `--connection`, `--from`, `--schema`, `--tables`, `--meta`, `--port`,
-`--no-open`, `--cdn`, `--title`.
+## Agent polish with meta.json
 
-### erd meta --stub
+Without `meta.json` every table renders ungrouped and uncolored, and
+`erd generate` warns. The recipe:
 
-Scaffold a `meta.json` that an agent fills in. Introspects the schema
-deterministically, detects framework tables, and writes a stub with every
-domain table listed as an empty description.
-
-```
-miudb erd meta --stub --connection myconn --output json
-miudb erd meta --stub --connection myconn --out-dir ./docs/erd/ --force
-```
-
-Flags: `--stub` (required), `--connection` (required), `--schema`, `--out-dir`,
-`--force`.
-
-Returns `kind: erd.meta` with `artifacts: [path/to/meta.json]`.
-
-## Using the diagram
-
-The generated `index.html` is a fully-offline interactive viewer:
-
-- **Navigate** — scroll to zoom, drag the background to pan, drag a table to move
-  it (positions persist); the minimap (top-right) and `Fit` / `Re-layout` reframe.
-- **Explore relationships** — click a table to spotlight it and its FK chain
-  (selectable depth); click a relationship line to highlight the two joined tables
-  and their join columns; **double-click** a table for the details drawer (columns,
-  types, PK/FK/audit, `ON DELETE`, incoming refs, indexes).
-- **Filter** — live search (tables + columns); **Domain groups** checkboxes with
-  **all** / **clear** to isolate one domain; toggle framework tables, audit columns,
-  and `Columns on nodes`; hide individual tables (card `×`, restore via "show N hidden").
-- **Find path** — shortest FK chain between two tables.
-- **Insights** — lints the schema (missing PK, FK type mismatch, unindexed FK, orphans).
-- **DBML** — opens the DBML source (dbdiagram.io / dbdocs format) with a Copy button.
-- **Share** — copies a link with your filters and selection encoded in the URL.
-- The header shows **visible/total** tables, columns, and relationships (live as you
-  filter). Hover a truncated table/column name for the full value; `?` lists shortcuts.
-
-## Two-layer model
-
-```
-Layer 1 — deterministic (miu-db)
-  introspect schema → schema.json IR → HTML / DBML / JSON
-
-Layer 2 — agentic (you / LLM)
-  read schema.json → write meta.json → re-run erd generate --meta meta.json
-```
-
-miu-db never calls an LLM. An agent reads `schema.json`, authors `meta.json`,
-then re-runs `erd generate` or `erd serve` with `--meta` to produce the polished
-diagram.
-
-## meta.json contract
+1. `miudb erd meta --stub -c app --out-dir <dir>` writes `meta.json` with
+   detected `framework_tables` and `audit_columns`, an empty `groups`, and one
+   empty `descriptions` entry per domain table.
+2. Read `<dir>/schema.json`. FK topology, table-name prefixes, row counts, and
+   migration file names are enough.
+3. Put every non-framework table into 5-9 `groups`, one hex color each, and write
+   one-line `descriptions` for the hub tables.
+4. `miudb erd generate -c app --meta <dir>/meta.json`.
 
 ```json
 {
-  "title": "My App",
-  "database_type": "MySQL",
+  "title": "Shop",
+  "database_type": "SQLite",
   "groups": {
-    "Billing": { "color": "#f59e0b", "tables": ["invoices", "payments"] }
+    "Catalog": { "color": "#2563eb", "tables": ["products", "categories"] },
+    "Sales": { "color": "#16a34a", "tables": ["orders", "order_items"] }
   },
-  "framework_tables": ["migrations", "cache", "sessions"],
+  "framework_tables": ["migrations"],
   "audit_columns": ["created_at", "updated_at", "deleted_at"],
   "classifications": { "users": "PII" },
-  "descriptions": {
-    "users": "Registered accounts",
-    "orders": "Purchase orders placed by users"
-  }
+  "descriptions": { "orders": "Purchase orders placed by users" }
 }
 ```
-
-All fields are optional. The stub produced by `erd meta --stub` pre-populates
-`database_type`, `audit_columns`, `framework_tables`, `groups` (empty map), and
-`descriptions` (one key per domain table, value `""`).
 
 | Field | Purpose |
 |---|---|
 | `title` | Diagram heading |
-| `database_type` | Human label shown in the diagram footer |
-| `groups` | Named clusters rendered as coloured swim-lanes |
-| `framework_tables` | Hidden by default in the rendered view |
+| `database_type` | Label in the footer |
+| `groups` | Colored domain swim-lanes |
+| `framework_tables` | Hidden by default |
 | `audit_columns` | Dimmed in column lists |
-| `classifications` | Agent-applied sensitivity tags (PII, secret, …) |
-| `descriptions` | Per-table prose shown in hover cards |
+| `classifications` | Sensitivity tags such as `PII` |
+| `descriptions` | One line per table in hover cards |
 
-## Agent recipe
-
-1. Run `miudb erd meta --stub --connection myconn` — creates
-   `.diagrams/myconn-erd/meta.json`.
-2. Read `.diagrams/myconn-erd/schema.json` (also written by `erd generate`).
-3. Group tables by domain using FK topology, table name prefixes, and migration
-   filenames. Assign a distinct `color` hex per group.
-4. For each key in `descriptions`, write one sentence sourced from column names,
-   FK targets, or migration filenames.
-5. Remove any `framework_tables` entries that should remain visible (rare).
-6. Re-run `miudb erd generate --connection myconn --meta
-   .diagrams/myconn-erd/meta.json` to produce the polished HTML.
+All fields are optional.

@@ -25,19 +25,23 @@ real database connections, schemas, or infrastructure into the repository.**
 Before committing, scan the diff for connection/host/schema identifiers that look
 real and replace them with synthetic equivalents.
 
-## Keep the downstream skill in sync
+## Keep the skill in sync (in-repo + downstream)
 
-This CLI has a downstream consumer: the **`miudb` skill** at
-`~/skills/skills/miudb/SKILL.md` (Claude Code skill). After landing a change here,
-check whether the skill needs updating and ship it in the `vanducng/skills` repo:
+This CLI ships an agent skill in **two** places that MUST stay identical:
+
+- **In-repo:** `.agents/skills/miudb/SKILL.md` is the canonical copy (agent-agnostic, so Codex/Cursor/etc. read it); `.claude/skills/miudb` is a **symlink** to it so Claude Code reads the same file. The docs workflow also serves it at `https://db.miu.sh/skill.md`. Edit the canonical `.agents/skills/miudb/SKILL.md`.
+- **Downstream:** `~/skills/skills/miudb/SKILL.md` in the `vanducng/skills` repo.
+
+After landing a change here, update BOTH in the same work session:
 
 - **New/renamed commands, flags, or output shape** → update the skill's command
-  examples and the "Output contract" / discovery sections.
+  table and the "Output contract" section.
 - **ERD renderer template** (`internal/erd/assets/erd-template.html`) is mirrored
   **byte-for-byte** into the `diagram` skill's `er_html.py` `_TEMPLATE`. Any edit
   here must be re-synced there (regex-replace the `_TEMPLATE = r"""…"""` block,
   then `py_compile` + run the skill's tests). The two must stay identical.
-- **New ERD viewer features** → document them in the skill's ERD "Viewer" section.
+- **New ERD viewer features** → document them in the skill's "ERD polish" viewer line.
+- **New MCP tools** → list them in the skill's MCP section.
 
 Rule of thumb: if a change alters what a user types or sees, the skill is likely
-stale — update it in the same work session, don't defer.
+stale - update both copies in the same work session, don't defer.

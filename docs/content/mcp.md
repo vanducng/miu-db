@@ -1,83 +1,36 @@
 ---
 title: MCP server
-description: Configure miu-db as a local stdio MCP server for coding agents.
+description: Run miudb as a local stdio MCP server with read-only, bounded database tools for Claude Code, Codex, Cursor, and VS Code.
 ---
 
-# MCP Server
-
-`miudb mcp serve --transport stdio` exposes saved miu-db connections to MCP
-clients over standard input/output. It is separate from the native
-`miudb serve --protocol jsonrpc|ndjson` protocol used by Neovim and custom
-clients.
-
-## Command
-
-```bash
+```sh
 miudb mcp serve --transport stdio
 ```
 
-Useful flags:
+The server reads the normal connection store and exposes it over stdio only;
+there is no HTTP transport. Stdout carries MCP frames only; diagnostics and SDK
+logs go to stderr. Unknown transports exit 2.
 
-- `--connection <name>`: repeat to restrict visible and callable connections.
-- `--limit <n>`: default row limit for `query_run`.
-- `--max-limit <n>`: upper bound accepted from tool arguments.
-- `--max-bytes <n>`: maximum serialized tool or resource response size.
-- `--timeout <duration>`: inherited global timeout, such as `30s`.
-- `--allow-mutate`: permit mutation SQL through `query_run`; unsafe and off by
-  default.
+| Flag | Default | Effect |
+|---|---|---|
+| `--connection <ref>` | all | Repeat to restrict which connections are visible and callable |
+| `--limit` | 100 | Default row limit for query tools |
+| `--max-limit` | 1000 | Highest limit a tool call may request |
+| `--max-bytes` | 1048576 | Max serialized bytes per tool or resource response |
+| `--timeout` | 30s | Global connection and query timeout |
+| `--allow-mutate` | off | Permit mutation SQL. Unsafe. |
 
-:::note[Important]
-Stdout is reserved for MCP protocol frames. Diagnostics, startup errors, and
-SDK logs go to stderr.
-:::
+## Add to a host
 
-## Safety Model
-
-MCP v1 is local stdio only. There is no remote HTTP transport or remote auth in
-this release.
-
-- Connections are loaded from the normal native store under
-  `~/.config/miu/db` unless CLI flags override it.
-- Connection output is redacted with the same helpers as the CLI.
-- Passwords, SSH passwords, private key content, credential file content, and
-  credential-bearing URLs are not serialized.
-- `query_run` is read-only by default. Mutation statements, uncertain
-  multi-statements, mutating CTEs, `EXPLAIN`, and `PRAGMA` are rejected unless
-  `--allow-mutate` is set.
-- Continuation cursors are signed for the running MCP server and scoped to the
-  source connection, so allowlists also apply to `query_fetch_page`.
-- Large outputs fail with `query.output_too_large`; lower `--limit`, increase
-  `--max-bytes`, or fetch narrower data.
-
-## Tools
-
-- `connections_list`: list redacted MCP-visible connections and store metadata.
-- `connection_describe`: return redacted metadata for one connection.
-- `connection_test`: open one connection and report reachability.
-- `connections_smoke`: run a small read-only smoke query across visible
-  connections or a named subset.
-- `schema_tree`: inspect schema objects for one connection.
-- `query_run`: run bounded read-only SQL and return columns plus row arrays.
-- `query_fetch_page`: fetch a continuation cursor returned by `query_run`.
-
-## Resources
-
-- `miudb://connections`
-- `miudb://connections/{name}`
-- `miudb://connections/{name}/schema`
-- `miudb://queries/{cursor}`
-
-Schema resources can be large. Prefer `schema_tree` when an agent needs bounded,
-interactive control over what it reads.
-
-## Host Setup
-
-### Codex
-
-Codex reads MCP server entries from `~/.codex/config.toml` under
-`mcp_servers.<id>`.
+| Host | Setup |
+|---|---|
+| Claude Code | `claude mcp add --transport stdio miudb -- miudb mcp serve --transport stdio` |
+| Codex | `~/.codex/config.toml`, below |
+| Cursor | `.cursor/mcp.json` (project) or `~/.cursor/mcp.json` (global) |
+| VS Code, Copilot | `.vscode/mcp.json` or your user MCP config |
 
 ```toml
+# ~/.codex/config.toml
 [mcp_servers.miudb]
 command = "miudb"
 args = ["mcp", "serve", "--transport", "stdio"]
@@ -85,83 +38,58 @@ startup_timeout_sec = 10
 tool_timeout_sec = 60
 ```
 
-To restrict the server to one connection:
-
-```toml
-[mcp_servers.miudb]
-command = "miudb"
-args = ["mcp", "serve", "--transport", "stdio", "--connection", "local-app"]
-```
-
-Reference: [OpenAI Codex configuration reference](https://developers.openai.com/codex/config-reference).
-
-### Claude Code
-
-Use the CLI:
-
-```bash
-claude mcp add --transport stdio miudb -- miudb mcp serve --transport stdio
-```
-
-Or add project-scoped `.mcp.json`:
+Cursor and a project `.mcp.json` for Claude Code use `mcpServers`; VS Code uses
+`servers` with the same entry:
 
 ```json
 {
   "mcpServers": {
-    "miudb": {
-      "type": "stdio",
-      "command": "miudb",
-      "args": ["mcp", "serve", "--transport", "stdio"],
-      "env": {}
-    }
+    "miudb": { "type": "stdio", "command": "miudb", "args": ["mcp", "serve", "--transport", "stdio"] }
   }
 }
 ```
 
-Reference: [Claude Code MCP documentation](https://code.claude.com/docs/en/mcp).
+To pin one connection, append `"--connection", "app"` to `args`. If the host
+cannot find `miudb`, use the full path from `which miudb`.
 
-### Cursor
+## Tools
 
-Use `.cursor/mcp.json` for project configuration or `~/.cursor/mcp.json` for
-global configuration.
+| Tool | Does |
+|---|---|
+| `connections_list` | Redacted connections visible to this server |
+| `connection_describe` | Redacted metadata for one connection |
+| `connection_test` | Open one connection; may start a tunnel, runs no user SQL |
+| `connections_smoke` | Bounded smoke query across visible connections or a subset |
+| `schema_tree` | Tables, views, and columns for one connection |
+| `query_run` | One read-only statement; columns plus row arrays and a cursor |
+| `query_script` | Multi-statement script, Snowflake and MySQL only; `atomic` wraps it in a transaction |
+| `query_fetch_page` | Next page for a `query_run` cursor |
 
-```json
-{
-  "mcpServers": {
-    "miudb": {
-      "type": "stdio",
-      "command": "miudb",
-      "args": ["mcp", "serve", "--transport", "stdio"]
-    }
-  }
-}
-```
+Resources: `miudb://connections`, `miudb://connections/{name}`,
+`miudb://connections/{name}/schema`, `miudb://queries/{cursor}`. Schema
+resources can be large; prefer `schema_tree`.
 
-Reference: [Cursor MCP documentation](https://docs.cursor.com/context/model-context-protocol).
+## Safety
 
-### VS Code and Copilot
-
-Use `.vscode/mcp.json` for workspace configuration or your VS Code user profile
-MCP configuration.
-
-```json
-{
-  "servers": {
-    "miudb": {
-      "type": "stdio",
-      "command": "miudb",
-      "args": ["mcp", "serve", "--transport", "stdio"]
-    }
-  }
-}
-```
-
-Reference: [VS Code MCP configuration reference](https://code.visualstudio.com/docs/copilot/reference/mcp-configuration).
+- `query_run` rejects mutations, uncertain multi-statements, mutating CTEs,
+  `EXPLAIN`, and `PRAGMA` with `query.read_only_violation` unless the server
+  runs with `--allow-mutate`.
+- A mutating `query_script` needs `--allow-mutate` on the server and
+  `allow_mutate=true` on the call (`query.mutation_not_acknowledged` otherwise).
+  Read-only scripts always run.
+- Connection output is redacted with the CLI helpers. Passwords, SSH passwords,
+  private keys, credential file contents, and credential-bearing URLs are never
+  serialized.
+- Cursors are signed for the running server and scoped to their connection, so
+  the `--connection` allowlist also applies to `query_fetch_page`.
+- An oversized response fails with `query.output_too_large`: lower the limit,
+  select fewer columns, or raise `--max-bytes`.
 
 ## Troubleshooting
 
-- If the host cannot start the server, use a full path from `which miudb`.
-- If no tools appear, restart the host and verify its MCP panel or command.
-- If a connection is hidden, check repeated `--connection` flags.
-- If SQL is rejected as read-only, simplify to a single `select` statement.
-- If output is too large, lower `--limit` or query fewer columns.
+| Symptom | Fix |
+|---|---|
+| Host cannot start the server | Use the full path from `which miudb` |
+| No tools appear | Restart the host; check its MCP panel |
+| A connection is missing | Check the repeated `--connection` flags |
+| `query.read_only_violation` | Use a single `select`, or restart with `--allow-mutate` if you mean it |

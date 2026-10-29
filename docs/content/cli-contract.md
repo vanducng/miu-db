@@ -1,32 +1,13 @@
 ---
-title: "CLI contract"
+title: Agent CLI contract
+description: The miudb.cli/v1 JSON envelope, exit codes, error codes, redaction, and command discovery for agents.
 ---
 
-The Go track exposes `miudb` as the primary binary. `miu-db` remains the Python
-entry point.
+Every command prints one JSON envelope on stdout. Stderr is diagnostics only.
+`-o pretty` indents the same envelope for humans; agents keep the default
+compact `json`.
 
-## Output Modes
-
-Every agent-facing command supports `--output json`. Commands that stream can
-also support `--output jsonl`. Human table output can be added after the JSON
-contract is stable.
-
-Rules:
-
-- stdout is data.
-- stderr is diagnostics, progress, and human hints.
-- JSON output uses compact objects by default.
-- Output is secret-hardened: credential-named values, password-bearing URLs, and
-  `key=secret` assignments are redacted before stdout (`connections list` shows
-  `has_password: true`, never the value). Query-result *values* are not masked —
-  they are the user's data.
-- Query rows are arrays by default, with column metadata carrying names/types.
-- Bounded query output is the default; commands return `page.next_cursor` when
-  more data can be fetched.
-
-## JSON Envelope
-
-Successful commands return:
+## Envelope
 
 ```json
 {
@@ -35,33 +16,88 @@ Successful commands return:
   "kind": "query.result",
   "command": "query run",
   "request_id": "req_...",
-  "summary": {},
-  "data": {},
-  "page": {},
-  "stats": {},
+  "summary": { "connection": "app", "db_type": "sqlite" },
+  "data": {
+    "connection": "app",
+    "result": {
+      "columns": [{ "name": "id", "type": "INTEGER", "nullable": true }],
+      "rows": [[1], [2]],
+      "truncated": true
+    }
+  },
+  "page": { "limit": 2, "next_cursor": "..." },
   "artifacts": [],
   "warnings": []
 }
 ```
 
-Errors return the same envelope shape with `ok: false` and an `error` object.
+- `summary`, `data`, `page`, and `stats` are omitted when empty. `artifacts` and
+  `warnings` are always arrays.
+- Rows are positional arrays matching `columns`. `truncated: true` with
+  `page.next_cursor` means `query fetch-page --cursor` has more.
+- `erd` commands list written files in `artifacts`.
 
-## Protocol Modes
+On failure `ok` is `false`, `kind` is `error`, and there is no `data`:
 
-`miudb serve --protocol jsonrpc` uses JSON-RPC 2.0 responses plus server-to-
-client notifications for call events.
+```json
+{ "ok": false, "kind": "error", "command": "query run",
+  "error": { "code": "connection.not_found", "message": "connection not found", "retryable": false } }
+```
 
-`miudb serve --protocol ndjson` uses one line-delimited envelope per request,
-response, and event. Raw human progress is never written to stdout in either
-mode.
+`error` may also carry `hint`, `safe_to_retry`, and `details`.
 
-`miudb mcp serve --transport stdio` starts a standards-compliant MCP server over
-stdio for coding-agent hosts. MCP protocol frames are the only data written to
-stdout; diagnostics and SDK logging go to stderr. The native `miudb serve`
-protocol remains available for Neovim and custom clients.
+One exception: when a statement in `query script` fails, the envelope keeps
+`kind: query.script_result` with `ok: false`, no `error` object, and
+`data.results` plus `data.errors` for the statements that ran. The exit code is 2.
 
-## Command Catalog
+## Exit codes
 
-`miudb commands --output json` returns the command catalog. `miudb describe
-<command> --output json` returns one command descriptor with inputs, outputs,
-side effects, stability, and examples.
+| Exit | Meaning |
+|---|---|
+| `0` | Success. Also `connections smoke` with failed connections: read `data.results[].ok` and `summary.failed`. |
+| `2` | Bad input or a known failure: `connection.not_found`, invalid flags or options, unsupported script or session key, ERD errors |
+| `1` | Everything else, including driver errors (`internal.error`), unknown flags, and failed upgrades |
+
+Always branch on `ok`, not only the exit code.
+
+## Common error codes
+
+| Code | Meaning |
+|---|---|
+| `connection.not_found` | No connection with that ref. List them with `connections list --basic`. |
+| `connection.missing_input`, `connection.invalid_option` | `connections add` input is incomplete or malformed |
+| `connection.import_unreadable`, `connection.import_empty` | The import file cannot be read or has no connections |
+| `query.missing_input`, `query.missing_cursor` | `--sql` or `--cursor` missing |
+| `query.multi_statement_not_allowed` | Several statements sent to `query run`; use `query script` |
+| `query.script_unsupported` | Script on SQLite, Postgres, or BigQuery |
+| `query.unsupported_session_key` | `--session` key the provider does not accept |
+| `erd.unsupported_db`, `erd.missing_connection`, `erd.meta_invalid` | ERD input errors |
+| `activity.invalid_since`, `activity.invalid_older_than` | Bad duration |
+| `upgrade.managed_install` | Installed by Homebrew; use `brew upgrade miudb` |
+| `internal.error` | Driver or unexpected error; the message says what failed |
+
+## Redaction
+
+Credential-named fields (`password`, `secret`, `token`, `private_key`,
+`api_key`, and similar), password-bearing URLs, and `key=secret` assignments are
+replaced before anything reaches stdout. `connections list` shows
+`has_password: true`, never the value. Query values are not masked; they are the
+user's data.
+
+## Discovery
+
+```sh
+miudb commands                 # catalog: name, summary, stability, mutates, side effects
+miudb describe query run       # one command
+miudb connections list --basic # refs to pass to --connection
+```
+
+## Other transports
+
+| Command | For |
+|---|---|
+| `miudb mcp serve --transport stdio` | MCP hosts. See [MCP server](/mcp/). |
+| `miudb serve --protocol jsonrpc` | JSON-RPC 2.0 over stdio with call-event notifications (Neovim, custom clients) |
+| `miudb serve --protocol ndjson` | One line-delimited envelope per request, response, and event |
+
+Neither `serve` mode writes human progress to stdout.
