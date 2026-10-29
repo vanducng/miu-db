@@ -5,17 +5,25 @@ site/
 *.db
 coverage.out
 
-# Local agent tooling state
-.claude/
+# Local agent tooling state (but track the in-repo miudb skill)
+.claude/*
+!.claude/skills/
+!.claude/skills/**
+
+# Agent skills (canonical; .claude/skills symlinks here)
+.agents/*
+!.agents/skills/
+!.agents/skills/**
 
 # Astro / Starlight docs site
 node_modules/
 docs/dist/
 .astro/
 
-# CI stages the canonical scripts/install.{sh,ps1} here at docs build time
+# CI stages the canonical installers and skill here at docs build time
 docs/public/install.sh
 docs/public/install.ps1
+docs/public/skill.md
 
 # Local working artifacts (plans, phases, reports, decisions, journals) — never commit
 plans/
