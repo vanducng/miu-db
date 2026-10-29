@@ -1,0 +1,235 @@
+{
+  "schema_version": 1,
+  "diagram_type": "architecture",
+  "meta": {
+    "title": "miu-db architecture",
+    "quality_profile": "showcase"
+  },
+  "components": [
+    {
+      "id": "cli",
+      "type": "frontend",
+      "label": "miudb CLI",
+      "sublabel": "query / schema / erd",
+      "pos": [
+        40,
+        60
+      ],
+      "size": [
+        200,
+        60
+      ]
+    },
+    {
+      "id": "mcp",
+      "type": "frontend",
+      "label": "miudb mcp serve",
+      "sublabel": "read-only by default",
+      "pos": [
+        40,
+        220
+      ],
+      "size": [
+        200,
+        60
+      ]
+    },
+    {
+      "id": "serve",
+      "type": "frontend",
+      "label": "miudb serve",
+      "sublabel": "JSON-RPC / NDJSON",
+      "pos": [
+        40,
+        380
+      ],
+      "size": [
+        200,
+        60
+      ]
+    },
+    {
+      "id": "core",
+      "type": "backend",
+      "label": "core.Services",
+      "sublabel": "resolve / run / page",
+      "pos": [
+        340,
+        190
+      ],
+      "size": [
+        200,
+        120
+      ]
+    },
+    {
+      "id": "config",
+      "type": "security",
+      "label": "Config + secrets",
+      "sublabel": "keyring / file / gopass",
+      "pos": [
+        660,
+        40
+      ],
+      "size": [
+        230,
+        60
+      ]
+    },
+    {
+      "id": "adapters",
+      "type": "backend",
+      "label": "Adapter registry",
+      "sublabel": "5 database drivers",
+      "pos": [
+        660,
+        220
+      ],
+      "size": [
+        230,
+        60
+      ]
+    },
+    {
+      "id": "db",
+      "type": "database",
+      "label": "Databases",
+      "sublabel": "SQLite / PG / MySQL / SF / BQ",
+      "pos": [
+        1000,
+        220
+      ],
+      "size": [
+        230,
+        60
+      ]
+    },
+    {
+      "id": "tunnel",
+      "type": "security",
+      "label": "SSH tunnel",
+      "sublabel": "Postgres / MySQL",
+      "pos": [
+        1000,
+        400
+      ],
+      "size": [
+        230,
+        60
+      ]
+    },
+    {
+      "id": "pages",
+      "type": "database",
+      "label": "Page store",
+      "sublabel": "cursor pages in TMPDIR",
+      "pos": [
+        340,
+        420
+      ],
+      "size": [
+        200,
+        60
+      ]
+    },
+    {
+      "id": "activity",
+      "type": "database",
+      "label": "Activity log",
+      "sublabel": "JSONL, no result rows",
+      "pos": [
+        660,
+        420
+      ],
+      "size": [
+        230,
+        60
+      ]
+    }
+  ],
+  "connections": [
+    {
+      "id": "cli-core",
+      "from": "cli",
+      "to": "core",
+      "fromSide": "right",
+      "toSide": "top"
+    },
+    {
+      "id": "mcp-core",
+      "from": "mcp",
+      "to": "core",
+      "label": "tools",
+      "fromSide": "right",
+      "toSide": "left"
+    },
+    {
+      "id": "serve-core",
+      "from": "serve",
+      "to": "core",
+      "fromSide": "right",
+      "toSide": "left"
+    },
+    {
+      "id": "core-config",
+      "from": "core",
+      "to": "config",
+      "label": "resolve ref",
+      "fromSide": "top",
+      "toSide": "left"
+    },
+    {
+      "id": "core-adapters",
+      "from": "core",
+      "to": "adapters",
+      "label": "open / query",
+      "variant": "emphasis",
+      "fromSide": "right",
+      "toSide": "left"
+    },
+    {
+      "id": "adapters-db",
+      "from": "adapters",
+      "to": "db",
+      "label": "direct",
+      "variant": "emphasis"
+    },
+    {
+      "id": "adapters-tunnel",
+      "from": "adapters",
+      "to": "tunnel",
+      "label": "if enabled",
+      "variant": "dashed",
+      "fromSide": "bottom",
+      "toSide": "left"
+    },
+    {
+      "id": "tunnel-db",
+      "from": "tunnel",
+      "to": "db",
+      "fromSide": "top",
+      "toSide": "bottom"
+    },
+    {
+      "id": "core-pages",
+      "from": "core",
+      "to": "pages",
+      "label": "save / fetch rows",
+      "fromSide": "bottom",
+      "toSide": "top",
+      "labelAt": [
+        440,
+        365
+      ]
+    },
+    {
+      "id": "core-activity",
+      "from": "core",
+      "to": "activity",
+      "label": "events",
+      "variant": "dashed",
+      "fromSide": "right",
+      "toSide": "left"
+    }
+  ]
+}
