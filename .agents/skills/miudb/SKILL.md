@@ -78,8 +78,10 @@ Rules:
   "page": { "limit": 2, "next_cursor": "..." }, "artifacts": [], "warnings": [] }
 ```
 
-- Branch on `ok` first. On `ok:false` there is no `data`; read `error.code`,
-  `error.message`, `error.hint`, `error.retryable`.
+- Branch on `ok` first. On `ok:false` read `error.code`, `error.message`,
+  `error.hint`, `error.retryable`; there is no `data`. Exception: a failed
+  `query script` prints `kind: query.script_result` with `ok:false`, no `error`,
+  and `data.results` plus `data.errors` for the statements that ran (exit 2).
 - Rows are positional arrays matching `columns`. `truncated: true` plus
   `page.next_cursor` means more rows exist.
 - Exit `0` success, `2` bad input or `connection.not_found`, `1` anything else.

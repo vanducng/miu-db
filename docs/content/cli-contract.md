@@ -46,6 +46,10 @@ On failure `ok` is `false`, `kind` is `error`, and there is no `data`:
 
 `error` may also carry `hint`, `safe_to_retry`, and `details`.
 
+One exception: when a statement in `query script` fails, the envelope keeps
+`kind: query.script_result` with `ok: false`, no `error` object, and
+`data.results` plus `data.errors` for the statements that ran. The exit code is 2.
+
 ## Exit codes
 
 | Exit | Meaning |
@@ -65,7 +69,7 @@ Always branch on `ok`, not only the exit code.
 | `connection.import_unreadable`, `connection.import_empty` | The import file cannot be read or has no connections |
 | `query.missing_input`, `query.missing_cursor` | `--sql` or `--cursor` missing |
 | `query.multi_statement_not_allowed` | Several statements sent to `query run`; use `query script` |
-| `query.script_unsupported`, `query.script_failed` | Script on an unsupported backend, or a statement failed |
+| `query.script_unsupported` | Script on SQLite, Postgres, or BigQuery |
 | `query.unsupported_session_key` | `--session` key the provider does not accept |
 | `erd.unsupported_db`, `erd.missing_connection`, `erd.meta_invalid` | ERD input errors |
 | `activity.invalid_since`, `activity.invalid_older_than` | Bad duration |
