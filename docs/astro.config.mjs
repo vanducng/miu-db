@@ -10,6 +10,17 @@ export default defineConfig({
   // GFM (tables, strikethrough) for MDX — .mdx does not get it by default.
   // NOTE: markdown.remarkPlugins is deprecated in Astro 6; migrate when bumping major.
   markdown: { remarkPlugins: [remarkGfm] },
+  redirects: {
+    '/go-install/': '/install/',
+    '/go-daily-driver/': '/onboarding/',
+    '/agent-cli/': '/cli-contract/',
+    '/cloud-adapters/': '/authentication/',
+    '/system-architecture/': '/architecture/',
+    '/golang-architecture/': '/architecture/',
+    '/tech-stack/': '/architecture/',
+    '/deployment/': '/development/',
+    '/development-guidelines/': '/development/',
+  },
   integrations: [
     starlight({
       title: 'miu-db',
@@ -35,14 +46,11 @@ export default defineConfig({
       ],
       lastUpdated: true,
       sidebar: [
-        { label: 'Overview', link: '/' },
-        { label: 'Getting Started', items: ['go-install', 'go-daily-driver'] },
-        { label: 'Agent CLI', items: ['agent-cli', 'cli-contract', 'erd', 'mcp', 'authentication'] },
-        {
-          label: 'Architecture',
-          items: ['system-architecture', 'golang-architecture', 'tech-stack', 'cloud-adapters'],
-        },
-        { label: 'Operations', items: ['deployment', 'development-guidelines'] },
+        { label: 'Getting started', link: '/onboarding/' },
+        { label: 'Introduction', link: '/' },
+        { label: 'Guides', items: ['install', 'usage', 'authentication', 'erd', 'activity'] },
+        { label: 'Integration', items: ['mcp', 'cli-contract'] },
+        { label: 'Internals', items: ['architecture', 'development'] },
         {
           label: 'Related docs',
           items: [

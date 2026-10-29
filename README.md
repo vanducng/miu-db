@@ -1,321 +1,57 @@
+<p align="center"><img src="docs/public/brand/banner.png" alt="miu-db" width="840"></p>
+
 <p align="center">
-  <img src="docs/public/brand/banner.png" alt="miu-db" width="840">
+  <a href="https://github.com/vanducng/miu-db/releases"><img src="https://img.shields.io/github/v/release/vanducng/miu-db?label=release&color=7c3aed" alt="Release"></a>
+  <a href="https://go.dev"><img src="https://img.shields.io/badge/Go-1.25-00ADD8?logo=go&logoColor=white" alt="Go 1.25"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue" alt="MIT"></a>
 </p>
 
-<h1 align="center">miu-db</h1>
+# miu-db
 
-<p align="center">A headless database CLI for humans and agents.</p>
+A headless database CLI for humans and agents. Saved connections, keyring
+secrets, SSH tunnels, bounded queries, schema, ERDs, and MCP for SQLite,
+Postgres, MySQL, Snowflake, and BigQuery, with stable JSON on stdout.
 
-**miu-db** is the Go database core behind the `miudb` binary. It keeps the
-database layer focused on
-connections, credentials, tunnels, adapters, query execution, schema inspection,
-MCP, and machine-readable output.
+**Docs:** [db.miu.sh](https://db.miu.sh) · agents: append `.md` to any docs URL, or read [`llms.txt`](https://db.miu.sh/llms.txt)
 
-## Install
+## Get started
 
-One command, auto-detects OS and architecture.
+![miudb demo: add a connection, smoke test, query, schema, ERD, and the activity log](docs/public/demo/miudb.gif)
 
-**macOS / Linux:**
-
-```bash
+```sh
 curl -fsSL https://db.miu.sh/install.sh | sh
+curl -fsSL https://db.miu.sh/skill.md --create-dirs \
+  -o ~/.claude/skills/miudb/SKILL.md
 ```
 
-**Windows** (PowerShell):
-
-```powershell
-irm https://db.miu.sh/install.ps1 | iex
-```
-
-Both honor `MIUDB_VERSION` (pin a release) and `MIUDB_INSTALL_DIR`. Other options:
-
-- **Homebrew** — `brew install vanducng/tap/miudb`
-- **Go** — `go install github.com/vanducng/miu-db/cmd/miudb@latest`
-
-Verify:
-
-```bash
-miudb version --output json
-miudb commands --output json
-```
-
-Upgrade in place later (downloads the matching release, verifies its checksum,
-and replaces the binary):
-
-```bash
-miudb upgrade            # to the latest release
-miudb upgrade --check    # report whether a newer version exists
-miudb upgrade --version v0.2.4
-```
-
-All commands take `-o`/`--output`: `json` (default, compact) or `pretty`.
-Homebrew installs should upgrade with `brew upgrade miudb`.
-
-## Native Store
-
-The default native config lives under:
+Then ask your agent:
 
 ```text
-~/.config/miu/db/connections.json
+/miudb set up miudb: list my saved connections, add a SQLite connection for
+./app.db if none exists, smoke-test everything, then show me the schema.
 ```
 
-Sensitive values are classified before persistence. New connections store
-database and SSH passwords outside `connections.json` by default using the
-`miudb` OS Keychain/keyring service.
+Or by hand:
 
-```bash
-miudb connections add \
-  --name local-app \
-  --db-type sqlite \
-  --path ./app.db \
-  --secret-store keyring \
-  --output json
+```sh
+miudb connections add --name app --db-type sqlite --path ./app.db
+miudb connections smoke                              # test every saved connection
+miudb query run --connection app --sql 'select * from users' -o pretty
+miudb schema tree --connection app
+miudb mcp serve --transport stdio                    # read-only tools for agent hosts
 ```
 
-```bash
-miudb connections list --output json
-miudb connections list --basic --output json   # scannable: ref/name/group/db_type/host
-miudb connections test local-app --output json
-miudb query run -c local-app --sql 'select 1 as one' --output json
-```
+Other installs (Homebrew, Windows, `go install`): [Install](https://db.miu.sh/install/). More commands: [Getting started](https://db.miu.sh/onboarding/).
 
-Connections are addressed by **`group/name`** (e.g. `team/prod-db`) when names
-repeat across groups; a bare `name` works when it is unique. The `ref` column
-from `--basic` is exactly what you pass to `--connection` (short flag `-c`).
+## Develop
 
-Use `--session key=value` (repeatable) to set temporary, per-call session context.
-Keys are provider-specific and rejected when unsupported; they do not persist
-across calls. For example, switch the Snowflake role for one query:
-
-```bash
-miudb query run -c snowflake-prod \
-  --session role=ANALYST_ROLE \
-  --sql 'select current_role()' --output json
-```
-
-`query run` executes a single statement. To run several statements in one call,
-use `query script` (Snowflake and MySQL only). It returns `data.results` — an
-array with one entry per statement (`kind` is `rows` or `exec`). Fail-fast by
-default; pass `--atomic` to wrap the script in a transaction (DML-only
-atomicity). Other datasources are rejected with a clear error.
-
-```bash
-miudb query script -c snowflake-prod \
-  --session role=SECURITYADMIN \
-  --sql "SHOW USERS LIKE 'alice'; SHOW ROLES LIKE 'analyst'" --output json
-```
-
-Supported secret stores for new connections:
-
-- `keyring`: OS Keychain/keyring service named `miudb` by default.
-- `file`: `~/.config/miu/db/credentials.json` with mode `0600`.
-- `inline`: keep the value in the connection file.
-- `none`: discard the supplied secret and require another resolver later.
-
-If `credentials.json` is absent, `miudb` also reads an existing
-`credentials-export.json` in the same directory for migrated connections.
-
-Future secret providers can plug into the same `SecretRef` model, including
-1Password and Bitwarden.
-
-## Share and Import
-
-To onboard a new machine or teammate, share a connections JSON file and import
-it. Import merges by name: matching connections are overwritten and the existing
-`connections.json` is backed up first to `connections.json.bak-<timestamp>`.
-
-```bash
-miudb connections import ./shared-connections.json --output json
-miudb connections import ./shared-connections.json --dry-run --output json
-```
-
-Secrets are imported as they appear in the file. A self-contained file with
-inline passwords needs no extra setup on the target machine; treat it as a
-secret (mode `0600`, secure channel only). Use `--dry-run` to preview the
-added/overwritten connections before writing.
-
-## OAuth Authentication
-
-Snowflake and BigQuery support token-based authentication with a one-time
-interactive login. All subsequent queries refresh and use the stored token
-silently.
-
-**Snowflake** — add the connection once, then log in:
-
-```bash
-miudb connections add \
-  --name sf-prod \
-  --db-type snowflake \
-  --host <account>.snowflakecomputing.com \
-  --username <user> \
-  --option authenticator=oauth \
-  --option oauth_client_id=<client-id> \
-  --option oauth_authorization_url=https://<account>.snowflakecomputing.com/oauth/authorize \
-  --option oauth_token_request_url=https://<account>.snowflakecomputing.com/oauth/token-request \
-  --option oauth_scope=session:role:ANALYST \
-  --output json
-
-miudb auth login sf-prod --output json
-miudb auth status sf-prod --output json
-miudb query run --connection sf-prod --sql 'SELECT CURRENT_ROLE()' --output json
-```
-
-No `--password` is required for OAuth connections.
-
-**BigQuery** — authenticate once with gcloud, then add the connection:
-
-```bash
-gcloud auth application-default login
-
-miudb connections add \
-  --name bq-analytics \
-  --db-type bigquery \
-  --option project=my-gcp-project \
-  --option dataset=analytics \
-  --output json
-```
-
-See [the authentication docs](https://db.miu.sh/authentication/) for
-the Snowflake `CREATE SECURITY INTEGRATION` snippet, all option keys, and
-secret-handling guarantees.
-
-## Adapters
-
-Daily-driver adapters:
-
-- SQLite
-- PostgreSQL
-- MySQL
-- Snowflake (password, JWT, OAuth)
-- BigQuery (ADC, service account)
-
-SSH tunnel-backed connections are supported for TCP adapters.
-
-## MCP
-
-Use miu-db as a local stdio MCP server for coding-agent hosts:
-
-```bash
-miudb mcp serve --transport stdio
-```
-
-The MCP server exposes redacted connection inventory, schema inspection,
-bounded read-only query execution, pagination, and `miudb://` resources.
-
-### Add to a host
-
-**Claude Code** — one command:
-
-```bash
-claude mcp add --transport stdio miudb -- miudb mcp serve --transport stdio
-```
-
-**Cursor** — add to `~/.cursor/mcp.json` (global) or `.cursor/mcp.json` (project):
-
-```json
-{
-  "mcpServers": {
-    "miudb": { "command": "miudb", "args": ["mcp", "serve", "--transport", "stdio"] }
-  }
-}
-```
-
-**Codex** — add to `~/.codex/config.toml`:
-
-```toml
-[mcp_servers.miudb]
-command = "miudb"
-args = ["mcp", "serve", "--transport", "stdio"]
-```
-
-If the host can't find `miudb`, use the full path from `which miudb`. See
-[the MCP docs](https://db.miu.sh/mcp/) for VS Code, per-connection
-scoping, and tool reference.
-
-## Activity Log
-
-Every query, exec, and schema operation is recorded as a JSONL event under:
-
-```text
-~/.config/miu/db/activity/{date}/{session_id}.jsonl
-```
-
-Each line captures SQL text, `sql_shape` (literals replaced with `?`),
-connection name, group, db\_type, latency, rows\_returned count, and error
-info. **Result rows are never stored** — only counts and metadata.
-
-### Browse logs
-
-```bash
-# all events from the last day
-miudb activity --since 1d --output json
-
-# all events for a specific connection
-miudb activity --connection local-app --since 7d --output json
-
-# only failures
-miudb activity --failed --since 24h --output json
-
-# reconstruct a full session trace (spans multiple date dirs if needed)
-miudb activity --session <session_id> --output json
-```
-
-### Prune old logs
-
-```bash
-miudb activity prune --older-than 30d          # delete dirs older than 30 days
-miudb activity prune --older-than 30d --dry-run # preview without deleting
-```
-
-### Opt out
-
-Disable for a single invocation:
-
-```bash
-miudb query run --connection local-app --sql 'select 1' --no-activity-log
-```
-
-Disable globally via environment variable:
-
-```bash
-MIUDB_ACTIVITY_LOG=off miudb query run --connection local-app --sql 'select 1'
-```
-
-Disable per-connection by setting `"log_sql": false` in `connections.json`:
-
-```json
-{ "name": "local-app", "db_type": "sqlite", "log_sql": false, ... }
-```
-
-With `log_sql: false`, `sql_shape` (normalized, no literals) is still
-recorded; only the raw SQL text is omitted.
-
-### `--session` flag distinction
-
-`query run --session key=value` sets a temporary, per-call connection context
-(e.g. Snowflake role). This is unrelated to the activity log session\_id, which
-is a machine-generated identifier minted once per CLI invocation or MCP server
-start. The flags share a name for historical reasons; renaming one is a
-separate, deferred decision.
-
-### Power-user SQL path (DuckDB)
-
-For ad-hoc analytics across all sessions, load the raw JSONL directly in DuckDB:
-
-```sql
-select session_id, connection, op, sql_shape, latency_ms, rows_returned, ts
-from read_json_auto('~/.config/miu/db/activity/**/*.jsonl')
-order by ts desc
-limit 100;
-```
-
-## Development
-
-```bash
-go test ./...
+```sh
 go build -buildvcs=false -o ./.miu-db/miudb ./cmd/miudb
-./.miu-db/miudb commands --output json
+go test ./...
 ```
 
-See [the architecture docs](https://db.miu.sh/golang-architecture/) and
-[the agent CLI docs](https://db.miu.sh/agent-cli/).
+**Agent skill:** [`.agents/skills/miudb/SKILL.md`](.agents/skills/miudb/SKILL.md) (agent-agnostic); `.claude/skills/miudb` is a symlink to it.
+
+## License
+
+MIT. See [LICENSE](LICENSE).
