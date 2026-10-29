@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.10.7](https://github.com/vanducng/miu-db/compare/v0.10.6...v0.10.7) (2026-10-29)
+
+
+### Bug Fixes
+
+* **docs:** focus the search input even when Pagefind mounts late ([#71](https://github.com/vanducng/miu-db/issues/71)) ([b542deb](https://github.com/vanducng/miu-db/commit/b542debaf71ae7c9c211b334673173558314f317))
+
 ## [0.10.6](https://github.com/vanducng/miu-db/compare/v0.10.5...v0.10.6) (2026-08-06)
 
 
