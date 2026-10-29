@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.10.8](https://github.com/vanducng/miu-db/compare/v0.10.7...v0.10.8) (2026-10-29)
+
+
+### Bug Fixes
+
+* **docs:** focus the search input when the dialog itself holds focus ([#73](https://github.com/vanducng/miu-db/issues/73)) ([17a389b](https://github.com/vanducng/miu-db/commit/17a389bb787c0b1cc8814b0215b6f81d7ee22d73))
+
 ## [0.10.7](https://github.com/vanducng/miu-db/compare/v0.10.6...v0.10.7) (2026-10-29)
 
 
